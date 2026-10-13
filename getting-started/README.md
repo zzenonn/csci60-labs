@@ -13,7 +13,7 @@ each result before going on.
 | **Containerlab** | Builds a network from a topology file: hosts and the links between them |
 | **Docker**       | Runs each host as a *container*: a small Linux machine with its own network interfaces, addresses and routing table |
 | **Open vSwitch** | Provides the switches (`s1`, `s2`, ...)                       |
-| **Ryu**          | An SDN controller: a Python program that tells OpenFlow switches what to do (Lab 2 only) |
+| **os-ken**       | An SDN controller framework: a Python program that tells OpenFlow switches what to do (Lab 2 only) |
 
 Everything runs inside your VM, but each host behaves like a separate
 computer. A command you run "on h1" sees only h1's interfaces and routes.
@@ -138,20 +138,20 @@ The last line should include `6633-6660`.
 
 ### 4.7 Container images
 
-The lab hosts and the Ryu controller run from two container images, built
+The lab hosts and the Lab 2 controller run from two container images, built
 from the `images/` folder:
 
 ```bash
 sudo docker build -t csci60/host images/host   # lab hosts (Alpine Linux + tools)
-sudo docker build -t csci60/ryu  images/ryu    # Ryu 4.34 on Python 3.9 (Lab 2)
+sudo docker build -t csci60/controller images/controller   # os-ken 4.2.2 (Lab 2)
 sudo docker images 'csci60/*'
 ```
 
 The last command lists both images.
 
-Ryu is no longer maintained and does not install on the Python that ships with
-Rocky Linux 10 (3.12), so it runs in a container with the last versions that
-work together: Python 3.9, Ryu 4.34, eventlet 0.30.2 and setuptools < 58.
+os-ken is an OpenFlow controller framework maintained by OpenStack. It runs
+in a container so its version is pinned and nothing is installed into the
+VM's own Python.
 
 ## 5. Your first network
 

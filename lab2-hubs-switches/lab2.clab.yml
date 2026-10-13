@@ -3,7 +3,7 @@
 #        h1      h2      h3
 #         \      |      /
 #          `---- s1 ---'        s1 is an Open vSwitch bridge, run by the
-#                               Ryu controller
+#                             os-ken controller
 #
 name: lab2
 prefix: ""          # name the containers just h1, h2, h3

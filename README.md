@@ -2,7 +2,7 @@
 
 The CSCI 60 network labs on your own **Rocky Linux** virtual machine, using
 **Containerlab** (hosts and links), **Open vSwitch** (switches) and the
-**Ryu** SDN controller (Lab 2).
+**os-ken** SDN controller (Lab 2).
 
 You use these tools directly. Every step is a command you type yourself.
 
@@ -21,16 +21,16 @@ Work through, in order:
 | Folder                | What it is                                                     |
 | --------------------- | -------------------------------------------------------------- |
 | `getting-started/`    | VM setup, first steps, and `first.clab.yml`: two hosts on one switch |
-| `lab2-hubs-switches/` | Lab 2 handout, `lab2.clab.yml`, and `sw_tutorial.py` (the Ryu controller app) |
+| `lab2-hubs-switches/` | Lab 2 handout, `lab2.clab.yml`, and `sw_tutorial.py` (the os-ken controller app) |
 | `lab3-ip-addressing/` | Lab 3 handout and `lab3.clab.yml`                              |
 | `lab4-ip-routing/`    | Lab 4 handout and `lab4.clab.yml`                              |
-| `images/`             | Container images: lab hosts, and Ryu                           |
+| `images/`             | Container images: lab hosts, and the os-ken controller         |
 
 Only Lab 2 uses a controller. In Labs 3 and 4 the switches are normal
 learning switches.
 
 Tested on Rocky Linux 10.2 (x86_64 and ARM64) with Docker 29.9, Open vSwitch
-3.5.3 (CentOS NFV SIG), Containerlab 0.81.0 and Ryu 4.34, SELinux enforcing.
+3.5.3 (CentOS NFV SIG), Containerlab 0.81.0 and os-ken 4.2.2, SELinux enforcing.
 
 `lab2-hubs-switches/sw_tutorial.py` is a port of `of_sw_tutorial_oo.py` from
 [hip2b2/poxstuff](https://github.com/hip2b2/poxstuff) and is GPLv3, like the

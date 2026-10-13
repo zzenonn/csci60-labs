@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 2: Connectivity Devices (Hubs and Switches) with OpenFlow
 
 *Original by William Emmanuel Yu, Ph.D. (September 2022). Updated for
-Containerlab, Open vSwitch and Ryu on your CSCI 60 VM.*
+Containerlab, Open vSwitch and os-ken on your CSCI 60 VM.*
 
 ## Objectives
 
@@ -20,8 +20,8 @@ Containerlab, Open vSwitch and Ryu on your CSCI 60 VM.*
 - The files in this folder:
   - `lab2.clab.yml`: the network. Three hosts (`h1`, `h2`, `h3`) on one
     switch (`s1`). Each link is limited to 10 Mbit/s with 10 ms delay.
-  - `sw_tutorial.py`: the **Switch / Hub Teaching Demo**, a Ryu controller app
-    with several switch implementations:
+  - `sw_tutorial.py`: the **Switch / Hub Teaching Demo**, an OpenFlow controller
+    app with several switch implementations:
     - *Dumb Hub*: all packets are sent to the controller and then broadcast to
       all ports. No flows are installed.
     - *Pair Hub*: flows are installed for source and destination MAC address
@@ -41,9 +41,9 @@ Containerlab, Open vSwitch and Ryu on your CSCI 60 VM.*
 
 ```text
  Terminal 1: CONTROLLER                 Terminal 2: NETWORK
- Ryu running sw_tutorial.py                docker exec h1 ping ...
+ os-ken running sw_tutorial.py             docker exec h1 ping ...
         ^                                          |
-        |  OpenFlow 1.0, tcp 127.0.0.1:6633        v
+        |  OpenFlow 1.3, tcp 127.0.0.1:6653        v
         +------------------------------  Open vSwitch bridge "s1"
                                               |    |    |
                                              h1   h2   h3   (containers)
@@ -52,14 +52,15 @@ Containerlab, Open vSwitch and Ryu on your CSCI 60 VM.*
 - **Open vSwitch** provides the switch `s1`. It does not decide anything by
   itself: for every packet it does not have a flow for, it asks the
   controller.
-- **Ryu** is the controller. It runs `sw_tutorial.py`, which decides what the
-  switch does: act like a hub, or like a switch.
+- **os-ken** is the controller framework. `sw_tutorial.py` is an os-ken app
+  that decides what the switch does: act like a hub, or like a switch.
 - **Containerlab** creates the hosts (small Linux containers) and the links
   between them and `s1`, from `lab2.clab.yml`.
 
 ## How to use the Switch / Hub Teaching Demo
 
-Type these commands in the **CONTROLLER** session, where Ryu is running:
+Type these commands in the **CONTROLLER** session, where the controller is
+running:
 
 | Command           | What it does                                            |
 | ----------------- | ------------------------------------------------------- |
@@ -86,13 +87,13 @@ until you choose one.
    ```
 
 3. Make `s1` an OpenFlow switch that takes all its decisions from a
-   controller: speak OpenFlow 1.0, forward nothing on its own
+   controller: speak OpenFlow 1.3, forward nothing on its own
    (`fail_mode=secure`), and connect to the controller on this VM, port
-   6633.
+   6653 (the standard OpenFlow port).
 
    ```bash
-   sudo ovs-vsctl set bridge s1 protocols=OpenFlow10 fail_mode=secure
-   sudo ovs-vsctl set-controller s1 tcp:127.0.0.1:6633
+   sudo ovs-vsctl set bridge s1 protocols=OpenFlow13 fail_mode=secure
+   sudo ovs-vsctl set-controller s1 tcp:127.0.0.1:6653
    ```
 
 4. Create the hosts and connect them to `s1`. Read `lab2.clab.yml` first to
@@ -114,12 +115,13 @@ until you choose one.
    running.
 
    ```bash
-   sudo docker run --rm -it --name ryu --net host -v $PWD:/lab:ro,z csci60/ryu ryu-manager /lab/sw_tutorial.py
+   sudo docker run --rm -it --name controller --net host -v $PWD:/lab:ro,z csci60/controller python3 /lab/sw_tutorial.py
    ```
 
-   (Ryu runs inside a container, `csci60/ryu`. `--net host` lets it listen on
-   the VM's port 6633. `-v $PWD:/lab` makes this folder, with
-   `sw_tutorial.py`, visible inside it.)
+   (The controller runs inside a container, `csci60/controller`, which has
+   os-ken installed. `--net host` lets it listen on the VM's port 6653.
+   `-v $PWD:/lab` makes this folder, with `sw_tutorial.py`, visible inside
+   it.)
 
    You should see `Switch ... connected.` Then set the *Dumb Hub* logic by
    typing in this session:
@@ -149,7 +151,7 @@ until you choose one.
    rule installation output, like:
 
    ```text
-   Broadcasting 00:00:00:00:00:01.1 -> ff:ff:ff:ff:ff:ff.65532
+   Broadcasting 00:00:00:00:00:01.1 -> ff:ff:ff:ff:ff:ff.ALL
    Installing 00:00:00:00:00:01.1 -> 00:00:00:00:00:02.2
    ```
 
@@ -158,15 +160,24 @@ until you choose one.
    pings again in the NETWORK session. Call the new controller output
    **OUTPUT B**.
 
-   Port `65532` means "all ports" and `ff:ff:ff:ff:ff:ff` means "any
+   Port `ALL` means "all ports" and `ff:ff:ff:ff:ff:ff` means "any
    address".
 
 9. In the NETWORK session, look at the flows the controller installed in the
    switch:
 
    ```bash
-   sudo ovs-ofctl dump-flows s1
+   sudo ovs-ofctl -O OpenFlow13 dump-flows s1
    ```
+
+   (`-O OpenFlow13` tells `ovs-ofctl` to talk OpenFlow 1.3, the only version
+   `s1` accepts.)
+
+   One flow is always there, even for the Dumb Hub:
+   `priority=0 actions=CONTROLLER:65535`. This is the *table-miss* flow. An
+   OpenFlow 1.3 switch drops a packet that matches no flow, so the controller
+   installs this lowest-priority, match-everything flow to have such packets
+   sent to it instead. Count the other flows.
 
 10. Change the switch type in the CONTROLLER session:
 
@@ -226,9 +237,9 @@ until you choose one.
    Stop the controller (`Ctrl-C`), clean up (step 12), and start again from
    step 2. You need to redo the experiment for that switch type.
 
-4. **`sudo docker run ...` says the name "ryu" is already in use.**
+4. **`sudo docker run ...` says the name "controller" is already in use.**
    A controller from an earlier try is still running. Stop it with
-   `sudo docker rm -f ryu`.
+   `sudo docker rm -f controller`.
 
 5. **`containerlab deploy` says the lab already exists, or `ovs-vsctl add-br`
    says `s1` already exists.**
