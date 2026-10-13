@@ -252,3 +252,28 @@ until you choose one.
 
 7. **How do I get a shell on a host?**
    `sudo docker exec -it h1 bash`. Type `exit` to leave it.
+
+8. **How do I clean up everything and start fresh?**
+   Containerlab removes the hosts and links, but never the switches: Open
+   vSwitch keeps them, even after a restart of the VM. A switch left over
+   from another lab keeps that lab's settings and can make every ping fail.
+   To get back to a clean VM:
+
+   ```bash
+   sudo docker rm -f controller
+   sudo containerlab destroy --all -y
+   sudo ovs-vsctl list-br
+   ```
+
+   For every switch `list-br` prints, delete it:
+
+   ```bash
+   sudo ovs-vsctl del-br s1
+   ```
+
+   Then check that nothing is left. Both commands should print nothing:
+
+   ```bash
+   sudo docker ps -q
+   sudo ovs-vsctl list-br
+   ```
