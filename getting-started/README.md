@@ -214,6 +214,11 @@ Each link is a virtual cable: `h1:eth0` is interface `eth0` on h1, and
    sudo ovs-vsctl show                           # the switch and its ports
    ```
 
+   The `IPv4/6 Address` column of `inspect` shows `N/A`. That column is for
+   Containerlab's management network, which these labs turn off
+   (`network-mode: none`) so that the hosts only have the links you see in
+   the topology file. The hosts' lab addresses are shown in section 6.
+
 ## 6. Running commands on a host
 
 `docker exec <host> <command>` runs a command on a host:
@@ -227,6 +232,16 @@ sudo docker exec h1 hostname           # prints h1
 
 The ping should show `0% packet loss`. If it does, your VM is ready for the
 labs.
+
+`containerlab exec` runs the same command on every host of a lab at once.
+This lists the addresses of all hosts:
+
+```bash
+sudo containerlab exec -t first.clab.yml --cmd "ip -br addr"
+```
+
+There is no command that pings every pair of hosts: ping each pair with
+`docker exec`.
 
 To work on a host for longer, open a shell on it. The prompt changes to the
 host's name, and every command runs on that host until you type `exit`:
