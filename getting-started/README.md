@@ -156,11 +156,11 @@ VM's own Python.
 ## 5. Your first network
 
 ```bash
-cd getting-started
+cd ~/csci60-labs/topologies
 ```
 
-A topology file describes the network. `first.clab.yml` in this folder has
-two hosts and one switch:
+A topology file describes the network. The `topologies` folder holds all the
+sample topology files; `first.clab.yml` has two hosts and one switch:
 
 ```bash
 cat first.clab.yml
@@ -349,9 +349,10 @@ Remember to clean up (section 8) after each one.
 
 ## Next: more shapes
 
-[`topologies/`](../topologies/README.md) has ready-made networks of the common
-shapes: single switch, linear chain, tree, a switch with 100 hosts, and a
-data-centre Clos (leaf-spine). Each file explains its shape at the top.
+The `topologies` folder, where `first.clab.yml` lives, also has ready-made
+networks of the common shapes: single switch, linear chain, tree, a switch
+with 100 hosts, and a data-centre Clos (leaf-spine). Each file explains its
+shape at the top; [its guide](../topologies/README.md) lists them all.
 
 ## Updating the course files
 

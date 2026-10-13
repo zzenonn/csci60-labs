@@ -1,11 +1,13 @@
 # Sample topologies
 
-Ready-made networks of the common shapes. Each file starts with a comment that
+All the sample networks: `first.clab.yml` from Getting Started, and the
+common shapes. Each file starts with a comment that
 draws the topology, says what it is used for, and lists the commands to build
 and remove it. Read that comment before you deploy.
 
 | Shape  | File                 | Switches              | Hosts | Mininet name             |
 | ------ | -------------------- | --------------------- | ----- | ------------------------ |
+| First  | `first.clab.yml`     | s1                    | 2     | `minimal`                |
 | Single | `single.clab.yml`    | s1                    | 3     | `single,3`               |
 | Linear | `linear.clab.yml`    | s1 .. s4              | 4     | `linear,4`               |
 | Tree   | `tree.clab.gotmpl`   | s1 .. s3              | 4     | `tree,depth=2,fanout=2`  |
@@ -25,7 +27,7 @@ cd ~/csci60-labs/topologies
 
 ## Plain files and templates
 
-`single.clab.yml` and `linear.clab.yml` are plain topology files: every host
+`first.clab.yml`, `single.clab.yml` and `linear.clab.yml` are plain topology files: every host
 and every cable is written out. Read them first; they show how a topology file
 describes a network.
 
