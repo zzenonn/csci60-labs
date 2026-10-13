@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 3: TCP/IP PC Networking Configuration
 
 *Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for the
-csci60 lab server (Containerlab + Open vSwitch).*
+CSCI 60 lab server (Containerlab and Open vSwitch).*
 
 ## Objectives
 
@@ -11,11 +11,13 @@ csci60 lab server (Containerlab + Open vSwitch).*
 ## Materials
 
 - PCs with a working MS Windows / Linux installation (Physical Host part).
-- An account on the CSCI 60 lab server (ask your instructor), and an SSH
-  client: `ssh` on Linux/macOS/Windows PowerShell, or PuTTY.
+- Your CSCI 60 lab server (ask your instructor) and an SSH client: `ssh` on
+  Linux, macOS or Windows PowerShell, or PuTTY.
 - Familiarity with the Linux command line
   (<http://www.tldp.org/LDP/abs/html/basic.html>).
-- *Getting Started with csci60* (`setup/docs/getting-started.md` in this repository).
+- *Getting Started* (`getting-started/README.md` in this repository).
+- `lab3.clab.yml` in this folder: four hosts (`h1` to `h4`) on one switch
+  (`s1`), with no IP addresses yet.
 
 ## Procedure for Physical Host IP Configuration
 
@@ -45,68 +47,89 @@ classroom computers and must be returned to their previous configuration.
 1. Configure your computers back to the original settings from the start of
    the class.
 
-## Procedure for the csci60 Set
+## Procedure for the Emulated Network
 
-1. Log in to the lab server.
+1. Log in to the lab server and go to this lab's folder.
 
    ```bash
    ssh <username>@<lab-server>
+   cd csci60-labs/lab3-ip-addressing
    ```
 
-2. Check that the server is ready. It should end with `All good.`
+2. Create the switch. Open vSwitch calls a switch a *bridge*. With no
+   controller set, it works as a normal learning switch.
 
    ```bash
-   csci60 doctor
+   sudo ovs-vsctl add-br s1
    ```
 
-3. Launch an interactive network with 4 hosts connected to one switch.
-   (If you forgot how to do this, review *Getting Started with csci60*.)
+3. Create the four hosts and connect them to `s1`. Read `lab3.clab.yml`
+   first to see what will be built.
 
-4. Configure IP addresses on your virtual hosts. The syntax is:
+   ```bash
+   cat lab3.clab.yml
+   sudo containerlab deploy -t lab3.clab.yml
+   ```
+
+4. Look at a host's interfaces. Each host is a container, and
+   `docker exec <host> <command>` runs a command on it. `eth0` is the link
+   to the switch. It has no IPv4 address (no `inet` line) yet.
+
+   ```bash
+   sudo docker exec h1 ifconfig -a
+   ```
+
+5. Configure an IP address. The syntax is the Linux `ifconfig` command:
 
    ```text
-   <host> ifconfig <host>-<interface> <ip address> netmask <subnet mask>
+   sudo docker exec <host> ifconfig <interface> <ip address> netmask <subnet mask>
    ```
 
    For example:
 
-   ```text
-   csci60> h1 ifconfig h1-eth0 192.168.0.1 netmask 255.255.255.0
+   ```bash
+   sudo docker exec h1 ifconfig eth0 192.168.0.1 netmask 255.255.255.0
    ```
 
    This configures IP address **192.168.0.1** with network mask
-   **255.255.255.0** on host **h1**. The syntax is the same as the Linux
-   `ifconfig` command, except that the host name comes first to say which host
-   runs it.
+   **255.255.255.0** on interface **eth0** of host **h1**.
 
-5. Configure the rest of the hosts. Hosts **h1** and **h2** must be in the
+6. Configure the rest of the hosts. Hosts **h1** and **h2** must be in the
    network **192.168.0.0/255.255.255.128**, and hosts **h3** and **h4** must
    be in the network **192.168.0.128/255.255.255.128**. These are network
-   addresses.
+   addresses. (Set h1 again too: the example in step 5 used a different mask.)
 
-6. Check each host's address. Look for the `inet` line:
+7. Check each host's address. Look for the `inet` line:
 
-   ```text
-   csci60> h1 ifconfig h1-eth0
+   ```bash
+   sudo docker exec h1 ifconfig eth0
    ```
 
-7. Test connectivity between hosts using `ping` (not `pingall`). Try every
-   pair, one command at a time, and write down which ones work:
+8. Test connectivity between hosts using `ping`. Try every pair, one command
+   at a time, and write down which ones work:
 
-   ```text
-   csci60> h1 ping -c3 192.168.0.2
-   csci60> h1 ping -c3 192.168.0.129
+   ```bash
+   sudo docker exec h1 ping -c3 192.168.0.2
+   sudo docker exec h1 ping -c3 192.168.0.129
    ...
    ```
 
    Some pings answer and some print `connect: Network unreachable`. Both are
    results: explain them in the questions below.
 
-8. Exit the console (`exit`). Then check that nothing is left running:
+9. Look at a host's routing table. It shows which networks the host can
+   reach directly:
 
    ```bash
-   csci60 status
+   sudo docker exec h1 route -n
    ```
+
+10. When you are done, remove the hosts and the switch:
+
+    ```bash
+    sudo containerlab destroy -t lab3.clab.yml
+    sudo ovs-vsctl del-br s1
+    ```
 
 ## Questions
 
@@ -123,34 +146,26 @@ classroom computers and must be returned to their previous configuration.
 - Can you ping your other classmates' computers (choose one that has reverted
   to the original classroom setting)? Why?
 
-**csci60 Set**
+**Emulated Network**
 
 - Which hosts can connect to (ping) each other? Why?
 
 ## Frequently Asked Questions
 
 1. **`ping: connect: Network unreachable`.**
-   This is an answer, not an error with the server: the host has no route to
+   This is an answer, not a problem with the server: the host has no route to
    that address. Think about which network each address is in.
 
-2. **"network 'csci60' is still running".**
-   `csci60 cli` reopens it; `csci60 stop` removes it.
+2. **`containerlab deploy` says the lab already exists, or `ovs-vsctl add-br`
+   says `s1` already exists.**
+   Something is left over from an earlier try. Run step 10, then start again
+   from step 2.
 
-3. **How do I see a host's addresses and routes?**
-   `h1 ifconfig -a`, `h1 route -n` (or `h1 ip addr`, `h1 ip route`).
+3. **`deploy` says it cannot find the bridge `s1`.**
+   Containerlab connects hosts to a switch that must already exist. Run
+   step 2 first.
 
-## How this lab fits together
-
-```text
- csci60 start --topo single,4
-        |
-        v
- Open vSwitch "s1" (built-in controller: normal learning switch)
-   |      |      |      |
-  h1     h2     h3     h4      (containers, one Linux network stack each)
-```
-
-- The `csci60` command comes from `setup/` in this repository (installed on
-  the server by the instructor).
-- No SDN controller is needed: the switch learns MAC addresses by itself, so
-  what you see depends only on the IP addresses you configure.
+4. **How do I get a shell on a host?**
+   `sudo docker exec -it h1 bash`. Then type commands without the
+   `sudo docker exec h1` part (`ifconfig -a`, `ping ...`). Type `exit` to
+   leave it.

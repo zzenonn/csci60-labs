@@ -1,0 +1,28 @@
+# Lab 3 network: four hosts on one switch. No IP addresses yet:
+# configuring them is the exercise.
+#
+#      h1     h2     h3     h4
+#       \     |      |     /
+#        `--------s1------'      s1 is an Open vSwitch bridge acting as a
+#                                normal learning switch
+#
+name: lab3
+prefix: ""          # name the containers just h1 .. h4
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none     # each host has only the links listed below
+  nodes:
+    h1: {}
+    h2: {}
+    h3: {}
+    h4: {}
+    s1:
+      kind: ovs-bridge
+  links:
+    - {endpoints: ["h1:eth0", "s1:s1-eth1"], mtu: 1500}
+    - {endpoints: ["h2:eth0", "s1:s1-eth2"], mtu: 1500}
+    - {endpoints: ["h3:eth0", "s1:s1-eth3"], mtu: 1500}
+    - {endpoints: ["h4:eth0", "s1:s1-eth4"], mtu: 1500}

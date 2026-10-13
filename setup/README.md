@@ -2,7 +2,7 @@
 
 Run these commands one at a time, in order, on a fresh Rocky Linux 10 server.
 Each step says what it does and how to check it worked. The whole setup takes
-about 5 minutes; most of that is step 9.
+about 5 minutes; most of that is step 8.
 
 Tested on Rocky Linux 10.2 (x86_64, SELinux enforcing). Rocky 9 uses the same
 steps.
@@ -14,8 +14,9 @@ steps.
   about 1 MB of RAM; Ryu uses about 60 MB.
 - Outbound internet access during setup (packages and container images).
 - SELinux can stay **enforcing**.
-- Give each student their own server or VM, as with the old Mininet VM. See
-  `docs/instructor-notes.md` for why.
+- One server or VM per student (or pair). Students need `sudo` on it, and the
+  labs use fixed names (`s1`, `h1`), so two students cannot share one.
+  In the cloud, a `t3.medium` is plenty; stop it outside lab hours.
 
 ## 1. Get this repository
 
@@ -31,8 +32,7 @@ The repository is private: log in with a GitHub account that has access
 ## 2. Base packages
 
 ```bash
-sudo dnf -y install dnf-plugins-core python3 python3-pyyaml \
-    iproute iputils tcpdump ethtool tar curl
+sudo dnf -y install dnf-plugins-core iproute tar curl nano
 ```
 
 ## 3. Kernel modules
@@ -44,7 +44,7 @@ are needed and live in `kernel-modules-extra`:
 | -------------- | ---------------------------------------------------- |
 | `br_netfilter` | Docker networking                                    |
 | `xt_addrtype`  | Docker networking (without it Docker will not start) |
-| `sch_netem`    | link delay and loss (`--link tc,delay=10ms,loss=5`)  |
+| `sch_netem`    | link speed and delay (`tc ... netem`)                |
 | `openvswitch`  | Open vSwitch (already in the base kernel)            |
 
 ```bash
@@ -96,9 +96,9 @@ containerlab version
 ## 7. SELinux: OpenFlow ports
 
 Open vSwitch may only connect to TCP ports labelled `openflow_port_t`, which by
-default are 6633 and 6653. Labs with a second controller use 6644. Without this
-step that switch logs `connect: Permission denied` and its hosts cannot reach
-each other.
+default are 6633 and 6653. This step adds the ports up to 6660, so students
+can run a second controller on another port. Without it, a switch pointed at
+such a port logs `connect: Permission denied`.
 
 ```bash
 sudo dnf -y install policycoreutils-python-utils
@@ -108,97 +108,52 @@ sudo semanage port -l | grep openflow
 
 The last line should include `6633-6660`.
 
-## 8. The csci60 tool and the Ryu apps
+## 8. Container images
 
 From the top of the `csci60-labs` checkout:
 
 ```bash
-sudo mkdir -p /opt/csci60 /var/lib/csci60/labs
-sudo cp -a setup/toolkit /opt/csci60/toolkit
-sudo cp -a ryu-apps /opt/csci60/ryu-apps
-sudo chmod -R a+rX /opt/csci60
-sudo ln -sf /opt/csci60/toolkit/bin/csci60 /usr/bin/csci60
+sudo docker build -t csci60/host setup/images/host   # lab hosts (Alpine Linux + tools)
+sudo docker build -t csci60/ryu  setup/images/ryu    # Ryu 4.34 on Python 3.9 (Lab 2)
+sudo docker images csci60/*
 ```
 
-`csci60` goes in `/usr/bin` because `sudo` on Rocky does not search
-`/usr/local/bin`. `csci60 ryu start <name>` looks for
-`/opt/csci60/ryu-apps/apps/<name>.py`.
-
-Then let Python find the toolkit, so Mininet scripts
-(`from mininet.net import Mininet`) work unchanged:
-
-```bash
-SITE=$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib", vars={"base": "/usr"}))')
-sudo mkdir -p "$SITE"
-echo /opt/csci60/toolkit/compat | sudo tee "$SITE/csci60-mininet-compat.pth"
-echo /opt/csci60/toolkit        | sudo tee "$SITE/csci60.pth"
-python3 -c 'import mininet.net, csci60; print("ok")'
-```
-
-The last command prints `ok`.
-
-## 9. Container images
-
-```bash
-sudo docker build -t csci60/host:latest setup/images/host   # lab hosts (Alpine + tools)
-sudo docker build -t csci60/ryu:latest  setup/images/ryu    # Ryu 4.34 on Python 3.9
-```
+The last command lists both images.
 
 Ryu is no longer maintained and does not install on the Python that ships with
 Rocky 10 (3.12). The image pins the last versions that work together:
 Python 3.9, Ryu 4.34, eventlet 0.30.2 and setuptools < 58.
 
-## 10. Student access
+## 9. Student account
 
-Building networks needs root (network namespaces, Open vSwitch, Docker).
-Students do not get general sudo, or Docker access. Members of the `csci60`
-group may run `csci60` as root, and nothing else:
-
-```bash
-sudo groupadd csci60
-sudo tee /etc/sudoers.d/csci60 <<'EOF'
-%csci60 ALL=(root) NOPASSWD: /usr/bin/csci60, /opt/csci60/toolkit/bin/csci60
-Defaults!/usr/bin/csci60 !requiretty
-EOF
-sudo chmod 440 /etc/sudoers.d/csci60
-sudo visudo -cf /etc/sudoers.d/csci60
-```
-
-`visudo` should print `parsed OK`. Then, for yourself and for each student
-(they log out and back in afterwards):
+Building networks needs root (Open vSwitch, Docker, Containerlab), so each
+student's account needs `sudo`. This is why each student gets their own
+server.
 
 ```bash
-sudo usermod -aG csci60 $USER
-sudo usermod -aG csci60 student01
+sudo useradd -m -G wheel student01
+sudo passwd student01
 ```
 
-`csci60` re-runs itself with `sudo` when it needs to, so students never type
-`sudo` themselves.
+## 10. Check
 
-Anyone allowed to run `csci60` can run their own Python scripts as root
-(`csci60 run x.py`), just as with `sudo mn` / `sudo python` before. That is
-another reason to give each student their own server.
-
-## 11. Check
-
-Log out and back in (for the group), then:
+Run the network from *Getting Started* once:
 
 ```bash
-csci60 doctor
-csci60 start --test pingall --topo single,3
+cd getting-started
+sudo ovs-vsctl add-br s1
+sudo containerlab deploy -t first.clab.yml
+sudo docker exec h1 ping -c3 10.0.0.2
+sudo containerlab destroy -t first.clab.yml
+sudo ovs-vsctl del-br s1
 ```
 
-`doctor` ends with `All good.`; the second command ends with
-`*** Results: 0% dropped (6/6 received)`.
+The ping should show `0% packet loss`.
 
 ## Updating
 
 ```bash
 cd csci60-labs && git pull
-sudo rm -rf /opt/csci60/toolkit /opt/csci60/ryu-apps
-sudo cp -a setup/toolkit /opt/csci60/toolkit
-sudo cp -a ryu-apps /opt/csci60/ryu-apps
-sudo chmod -R a+rX /opt/csci60
 ```
 
-Rebuild the images (step 9) only if `setup/images/` changed.
+Rebuild the images (step 8) only if `setup/images/` changed.

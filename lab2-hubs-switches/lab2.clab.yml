@@ -1,0 +1,37 @@
+# Lab 2 network: three hosts on one OpenFlow switch.
+#
+#        h1      h2      h3
+#         \      |      /
+#          `---- s1 ---'        s1 is an Open vSwitch bridge, run by the
+#                               Ryu controller
+#
+name: lab2
+prefix: ""          # name the containers just h1, h2, h3
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none     # each host has only the links listed below
+  nodes:
+    h1:
+      exec:
+        - ip link set eth0 address 00:00:00:00:00:01
+        - ip addr add 10.0.0.1/8 dev eth0
+        - tc qdisc add dev eth0 root netem delay 10ms rate 10mbit
+    h2:
+      exec:
+        - ip link set eth0 address 00:00:00:00:00:02
+        - ip addr add 10.0.0.2/8 dev eth0
+        - tc qdisc add dev eth0 root netem delay 10ms rate 10mbit
+    h3:
+      exec:
+        - ip link set eth0 address 00:00:00:00:00:03
+        - ip addr add 10.0.0.3/8 dev eth0
+        - tc qdisc add dev eth0 root netem delay 10ms rate 10mbit
+    s1:
+      kind: ovs-bridge
+  links:
+    - {endpoints: ["h1:eth0", "s1:s1-eth1"], mtu: 1500}
+    - {endpoints: ["h2:eth0", "s1:s1-eth2"], mtu: 1500}
+    - {endpoints: ["h3:eth0", "s1:s1-eth3"], mtu: 1500}

@@ -16,12 +16,14 @@ Six forwarding behaviours, switchable while the network is running:
                       that forwards to the right port.
   SW_IDEALPAIRSWITCH  like SW_PAIRSWITCH but installs both directions at once.
 
-Start it (default mode SW_IDEALPAIRSWITCH):
-    csci60 ryu start sw_tutorial
-Change the mode (this also clears every flow, like the POX steps
-MySwitch.clear_all_flows(); detach_packetin_listener(); attach_...):
-    csci60 ryu mode SW_DUMBHUB          (from a shell)
-    ryu mode SW_DUMBHUB                 (from the csci60> console)
+Run it (see the Lab 2 README for the full docker command):
+    ryu-manager sw_tutorial.py
+
+It starts with no switch type attached. Type commands at its prompt:
+    modes                 list the switch types and show the active one
+    mode SW_DUMBHUB       clear all flows, then attach that switch type
+    clear                 clear all flows
+    detach                stop handling packets
 
 Log lines keep the POX format, so the lab handout's OUTPUT A / OUTPUT B
 comparison still works:
@@ -30,27 +32,25 @@ comparison still works:
 ff:ff:ff:ff:ff:ff means "any MAC" and port 65532 means "all ports".
 """
 
-import json
+import sys
 
-from ryu.app.wsgi import ControllerBase, WSGIApplication, route
+from eventlet import tpool
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import (CONFIG_DISPATCHER, DEAD_DISPATCHER,
                                     MAIN_DISPATCHER, set_ev_cls)
+from ryu.lib import hub
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import ethernet, packet
 from ryu.ofproto import ofproto_v1_0
-from webob import Response
 
 ANY_MAC = "ff:ff:ff:ff:ff:ff"
-APP_KEY = "csci60_sw_tutorial"
 IDLE_TIMEOUT = 10
 HARD_TIMEOUT = 30
 
 
 class SwitchTutorial(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
-    _CONTEXTS = {"wsgi": WSGIApplication}
 
     MODES = ("SW_DUMBHUB", "SW_PAIRHUB", "SW_LAZYHUB", "SW_BADSWITCH",
              "SW_PAIRSWITCH", "SW_IDEALPAIRSWITCH")
@@ -60,10 +60,38 @@ class SwitchTutorial(app_manager.RyuApp):
         # (dpid, MAC) -> port where that MAC was last seen
         self.table = {}
         self.datapaths = {}
-        self.mode = "SW_IDEALPAIRSWITCH"
-        kwargs["wsgi"].register(TutorialRest, {APP_KEY: self})
-        self.logger.info("Switch / Hub Teaching Demo running in %s mode",
-                         self.mode)
+        self.mode = None
+        self.logger.info("Switch / Hub Teaching Demo. No switch type attached.")
+        self.logger.info("Commands: modes | mode <SW_...> | clear | detach")
+        hub.spawn(self.console)
+
+    # ----- the controller console ------------------------------------------
+
+    def console(self):
+        """Read commands typed at the controller, like the POX console."""
+        while True:
+            line = tpool.execute(sys.stdin.readline)
+            if not line:          # no terminal attached (stdin closed)
+                return
+            words = line.split()
+            if not words:
+                continue          # ENTER just separates the output
+            cmd, arg = words[0].lower(), (words[1:] or [None])[0]
+            try:
+                if cmd == "modes":
+                    self.logger.info("Available: %s", " ".join(self.MODES))
+                    self.logger.info("Active: %s", self.mode)
+                elif cmd == "mode" and arg:
+                    self.set_mode(arg.upper())
+                elif cmd == "clear":
+                    self.clear_all_flows()
+                elif cmd == "detach":
+                    self.set_mode(None)
+                else:
+                    self.logger.info("Commands: modes | mode <SW_...> | "
+                                     "clear | detach")
+            except ValueError as exc:
+                self.logger.info("%s", exc)
 
     # ----- helpers -------------------------------------------------------
 
@@ -221,38 +249,3 @@ class SwitchTutorial(app_manager.RyuApp):
         handler = getattr(self, self.mode[3:].lower())
         handler(msg, eth.src, eth.dst)
 
-
-class TutorialRest(ControllerBase):
-    """Small control API used by `csci60 ryu mode ...`."""
-
-    def __init__(self, req, link, data, **config):
-        super(TutorialRest, self).__init__(req, link, data, **config)
-        self.app = data[APP_KEY]
-
-    @staticmethod
-    def _json(obj, status=200):
-        return Response(status=status, content_type="application/json",
-                        charset="utf-8", body=json.dumps(obj).encode())
-
-    @route("csci60", "/csci60/modes", methods=["GET"])
-    def modes(self, req, **kwargs):
-        return self._json({"active": self.app.mode,
-                           "modes": list(self.app.MODES)})
-
-    @route("csci60", "/csci60/mode", methods=["POST"])
-    def mode(self, req, **kwargs):
-        try:
-            mode = json.loads(req.body.decode() or "{}").get("mode")
-            self.app.set_mode(mode)
-        except ValueError as exc:
-            return self._json({"error": str(exc)}, status=400)
-        return self._json({"active": self.app.mode})
-
-    @route("csci60", "/csci60/clear", methods=["POST"])
-    def clear(self, req, **kwargs):
-        self.app.clear_all_flows()
-        return self._json({"switches": len(self.app.datapaths)})
-
-    @route("csci60", "/csci60/switches", methods=["GET"])
-    def switches(self, req, **kwargs):
-        return self._json(["%016x" % d for d in sorted(self.app.datapaths)])

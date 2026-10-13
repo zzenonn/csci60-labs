@@ -1,0 +1,24 @@
+# First network: two hosts on one switch.
+#
+#     h1 ---- s1 ---- h2
+#
+name: first
+prefix: ""            # name the containers just h1, h2
+
+topology:
+  defaults:
+    kind: linux       # a host is a Linux container ...
+    image: csci60/host  # ... started from this image (Alpine Linux + tools)
+    network-mode: none  # with no network except the links below
+  nodes:
+    h1:
+      exec:
+        - ip addr add 10.0.0.1/24 dev eth0
+    h2:
+      exec:
+        - ip addr add 10.0.0.2/24 dev eth0
+    s1:
+      kind: ovs-bridge  # an Open vSwitch switch
+  links:
+    - {endpoints: ["h1:eth0", "s1:s1-eth1"], mtu: 1500}
+    - {endpoints: ["h2:eth0", "s1:s1-eth2"], mtu: 1500}
