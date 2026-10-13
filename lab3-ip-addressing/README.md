@@ -154,10 +154,30 @@ classroom computers and must be returned to their previous configuration.
    This is an answer, not a problem with your VM: the host has no route to
    that address. Think about which network each address is in.
 
-2. **`containerlab deploy` says the lab already exists, or `ovs-vsctl add-br`
-   says `s1` already exists.**
-   Something is left over from an earlier try. Run step 10, then start again
-   from step 2.
+2. **`deploy` says the lab already exists, `add-br` says a switch already
+   exists, or pings fail for no clear reason.**
+   Something from an earlier try or another lab is still running: a lab you
+   did not destroy, or a switch you did not delete. Containerlab never
+   deletes switches, so a leftover switch keeps its old settings and ports,
+   even after a restart of the VM. Remove everything:
+
+   ```bash
+   sudo containerlab destroy --all -y
+   sudo ovs-vsctl list-br
+   ```
+
+   Delete every switch `list-br` printed, one by one:
+
+   ```bash
+   sudo ovs-vsctl del-br s1
+   ```
+
+   Check that both of these print nothing, then start again from step 2:
+
+   ```bash
+   sudo docker ps -q
+   sudo ovs-vsctl list-br
+   ```
 
 3. **`deploy` says it cannot find the bridge `s1`.**
    Containerlab connects hosts to a switch that must already exist. Run
@@ -167,27 +187,3 @@ classroom computers and must be returned to their previous configuration.
    `sudo docker exec -it h1 bash`. Then type commands without the
    `sudo docker exec h1` part (`ifconfig -a`, `ping ...`). Type `exit` to
    leave it.
-
-5. **How do I clean up everything and start fresh?**
-   Containerlab removes the hosts and links, but never the switches: Open
-   vSwitch keeps them, even after a restart of the VM. A switch left over
-   from another lab keeps that lab's settings and can make every ping fail.
-   To get back to a clean VM:
-
-   ```bash
-   sudo containerlab destroy --all -y
-   sudo ovs-vsctl list-br
-   ```
-
-   For every switch `list-br` prints, delete it:
-
-   ```bash
-   sudo ovs-vsctl del-br s1
-   ```
-
-   Then check that nothing is left. Both commands should print nothing:
-
-   ```bash
-   sudo docker ps -q
-   sudo ovs-vsctl list-br
-   ```

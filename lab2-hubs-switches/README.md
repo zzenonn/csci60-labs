@@ -241,23 +241,12 @@ until you choose one.
    A controller from an earlier try is still running. Stop it with
    `sudo docker rm -f controller`.
 
-5. **`containerlab deploy` says the lab already exists, or `ovs-vsctl add-br`
-   says `s1` already exists.**
-   Something is left over from an earlier try. Run step 12, then start again
-   from step 2.
-
-6. **`deploy` says it cannot find the bridge `s1`.**
-   Containerlab connects hosts to a switch that must already exist. Run
-   step 2 first.
-
-7. **How do I get a shell on a host?**
-   `sudo docker exec -it h1 bash`. Type `exit` to leave it.
-
-8. **How do I clean up everything and start fresh?**
-   Containerlab removes the hosts and links, but never the switches: Open
-   vSwitch keeps them, even after a restart of the VM. A switch left over
-   from another lab keeps that lab's settings and can make every ping fail.
-   To get back to a clean VM:
+5. **`deploy` says the lab already exists, `add-br` says a switch already
+   exists, or pings fail for no clear reason.**
+   Something from an earlier try or another lab is still running: a lab you
+   did not destroy, or a switch you did not delete. Containerlab never
+   deletes switches, so a leftover switch keeps its old settings and ports,
+   even after a restart of the VM. Remove everything:
 
    ```bash
    sudo docker rm -f controller
@@ -265,15 +254,22 @@ until you choose one.
    sudo ovs-vsctl list-br
    ```
 
-   For every switch `list-br` prints, delete it:
+   Delete every switch `list-br` printed, one by one:
 
    ```bash
    sudo ovs-vsctl del-br s1
    ```
 
-   Then check that nothing is left. Both commands should print nothing:
+   Check that both of these print nothing, then start again from step 2:
 
    ```bash
    sudo docker ps -q
    sudo ovs-vsctl list-br
    ```
+
+6. **`deploy` says it cannot find the bridge `s1`.**
+   Containerlab connects hosts to a switch that must already exist. Run
+   step 2 first.
+
+7. **How do I get a shell on a host?**
+   `sudo docker exec -it h1 bash`. Type `exit` to leave it.

@@ -347,18 +347,38 @@ Rebuild the images (step 4.7) only if `images/` changed.
 1. **`deploy` says it cannot find the bridge.**
    Create the switch first: `sudo ovs-vsctl add-br s1`.
 
-2. **`deploy` says the lab already exists, or `add-br` says the switch
-   already exists.**
-   Something is left over from an earlier try. Clean up (section 8) and
-   start again.
+2. **`deploy` says the lab already exists, `add-br` says a switch already
+   exists, or pings fail for no clear reason.**
+   Something from an earlier try or another lab is still running: a lab you
+   did not destroy, or a switch you did not delete. Containerlab never
+   deletes switches, so a leftover switch keeps its old settings and ports,
+   even after a restart of the VM. Remove everything:
+
+   ```bash
+   sudo containerlab destroy --all -y
+   sudo ovs-vsctl list-br
+   ```
+
+   Delete every switch `list-br` printed, one by one:
+
+   ```bash
+   sudo ovs-vsctl del-br s1
+   ```
+
+   Check that both of these print nothing, then build the network again:
+
+   ```bash
+   sudo docker ps -q
+   sudo ovs-vsctl list-br
+   ```
 
 3. **`ping: connect: Network unreachable`.**
    The host has no route to that address. Check its address and mask
    (`ifconfig`) and its routes (`route -n`).
 
 4. **I restarted the VM and my network is broken.**
-   Containers and switches do not survive a restart cleanly. Clean up
-   (section 8), then build the network again.
+   The hosts are gone after a restart, but the switches are not. Follow
+   FAQ 2 to remove everything, then build the network again.
 
 5. **What is `prefix: ""` in the topology file?**
    Without it, Containerlab names the containers `clab-first-h1` and so on.
@@ -367,27 +387,3 @@ Rebuild the images (step 4.7) only if `images/` changed.
 6. **Docker or `dnf` fails with a network error.**
    The VM has no internet access. Check the VM's network adapter is set to
    NAT, and that `ping -c3 rockylinux.org` works in the VM.
-
-7. **How do I clean up everything and start fresh?**
-   Containerlab removes the hosts and links, but never the switches: Open
-   vSwitch keeps them, even after a restart of the VM. A switch left over
-   from another lab keeps that lab's settings and can make every ping fail.
-   To get back to a clean VM:
-
-   ```bash
-   sudo containerlab destroy --all -y
-   sudo ovs-vsctl list-br
-   ```
-
-   For every switch `list-br` prints, delete it:
-
-   ```bash
-   sudo ovs-vsctl del-br s1
-   ```
-
-   Then check that nothing is left. Both commands should print nothing:
-
-   ```bash
-   sudo docker ps -q
-   sudo ovs-vsctl list-br
-   ```
