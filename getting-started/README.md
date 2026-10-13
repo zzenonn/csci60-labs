@@ -266,7 +266,6 @@ Useful commands on a host:
 | `route add default gw 10.0.0.254`         | add a default route                  |
 | `ping -c3 <ip>`                           | test reachability                    |
 | `traceroute -n <ip>`                      | show the path to an address          |
-| `tcpdump -n -i eth0`                      | watch packets on an interface (Ctrl-C stops) |
 | `iperf -s` / `iperf -c <ip>`              | measure bandwidth (server / client)  |
 
 ## 7. Looking at the switch
@@ -345,7 +344,6 @@ sudo docker exec h1 iperf -c 10.0.0.2 -t 5
    Can the hosts on different switches ping each other? Why?
 2. Build `first.clab.yml` again, then compare `ping` between h1 and h2 with no
    delay, with 10 ms delay on h1, and with 10 ms delay on both h1 and h2.
-3. Use `tcpdump` on h2 while h1 pings it. Which packets do you see?
 
 Remember to clean up (section 8) after each one.
 
