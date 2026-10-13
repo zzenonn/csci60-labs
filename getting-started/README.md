@@ -1,7 +1,10 @@
-# CSCI 60: Getting Started with Containerlab
+# CSCI 60: Getting Started
 
-This guide shows you how to build small networks on the CSCI 60 lab server,
-and how to look at them. The labs build on it.
+You will set up your own lab machine, a Rocky Linux virtual machine (VM) on
+your computer, then build your first network on it. The labs build on this.
+
+Every step is a command you type yourself. Type them one at a time and check
+each result before going on.
 
 ## 1. What you will use
 
@@ -12,36 +15,149 @@ and how to look at them. The labs build on it.
 | **Open vSwitch** | Provides the switches (`s1`, `s2`, ...)                       |
 | **Ryu**          | An SDN controller: a Python program that tells OpenFlow switches what to do (Lab 2 only) |
 
-Everything runs on one server, but each host behaves like a separate
+Everything runs inside your VM, but each host behaves like a separate
 computer. A command you run "on h1" sees only h1's interfaces and routes.
 
-## 2. Getting connected
+## 2. Create the VM
 
-Your instructor gives you a lab server and an account on it. From your
-computer:
+Install a hypervisor and create a VM from the Rocky Linux 10 DVD or minimal
+ISO (<https://rockylinux.org/download>):
+
+| Your computer                    | Hypervisor                         | Rocky Linux ISO |
+| -------------------------------- | ---------------------------------- | --------------- |
+| Windows or Linux, Intel/AMD      | VirtualBox or VMware Workstation   | x86_64          |
+| Mac with Apple silicon (M1 to M4)| UTM or VMware Fusion               | ARM64 (aarch64) |
+| Mac with Intel                   | VirtualBox or VMware Fusion        | x86_64          |
+
+- 2 CPUs, 4 GB RAM, 20 GB disk.
+- Network: NAT (the default) is enough. The VM needs internet access for
+  this setup.
+- During installation, create a user and tick **Make this user
+  administrator**. You need `sudo` for everything below.
+
+Rocky Linux 10 needs a CPU from about 2013 or later (x86-64-v3). If the
+installer refuses to start on an older Intel/AMD computer, use Rocky Linux 9
+instead: the steps are the same.
+
+Log in to the VM at its console, or with `ssh` from your computer.
+
+## 3. Get the course files
 
 ```bash
-ssh <username>@<lab-server>
-```
-
-Windows: use `ssh` in PowerShell or Windows Terminal, or PuTTY.
-
-Get the course files (once):
-
-```bash
+sudo dnf -y install git
 git clone https://github.com/zzenonn/csci60-labs.git
-cd csci60-labs/getting-started
+cd csci60-labs
 ```
 
-Check that the tools are there. Each command prints a version:
+The repository is private: log in with your GitHub account (a personal access
+token works as the password). The rest of this guide runs from this
+`csci60-labs` folder.
+
+## 4. Install the tools
+
+This takes about 10 minutes, most of it downloads.
+
+### 4.1 Base packages
 
 ```bash
-sudo docker --version
-sudo ovs-vsctl --version
-sudo containerlab version
+sudo dnf -y install dnf-plugins-core iproute tar curl nano
 ```
 
-## 3. Your first network
+### 4.2 Kernel modules
+
+The Linux kernel needs these modules. Some are in the `kernel-modules-extra`
+package, which a minimal install leaves out:
+
+| Module         | Needed for                                           |
+| -------------- | ---------------------------------------------------- |
+| `openvswitch`  | Open vSwitch                                         |
+| `br_netfilter` | Docker networking                                    |
+| `xt_addrtype`  | Docker networking (without it Docker will not start) |
+| `sch_netem`    | link speed and delay (`tc ... netem`, section 10)    |
+
+```bash
+sudo dnf -y install kernel-modules-extra-$(uname -r)
+printf '%s\n' openvswitch br_netfilter xt_addrtype sch_netem | sudo tee /etc/modules-load.d/csci60.conf
+sudo modprobe -a openvswitch br_netfilter xt_addrtype sch_netem
+lsmod | grep -E 'openvswitch|br_netfilter|xt_addrtype|sch_netem'
+```
+
+The last command should list all four modules. If `dnf` cannot find
+`kernel-modules-extra` for the running kernel, the kernel was updated but the
+VM was not restarted: run `sudo reboot`, log in again, and repeat this step.
+
+### 4.3 Docker
+
+```bash
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+sudo dnf -y install docker-ce docker-ce-cli containerd.io
+sudo systemctl enable --now docker
+sudo docker info --format '{{.ServerVersion}}'
+```
+
+The last command prints Docker's version. If Docker fails to start and
+`sudo journalctl -u docker` mentions `xt_addrtype` or `br_netfilter`, step 4.2
+is missing.
+
+### 4.4 Open vSwitch
+
+Rocky Linux does not ship Open vSwitch itself. The CentOS NFV SIG repository
+does:
+
+```bash
+sudo dnf -y install centos-release-nfv-openvswitch
+sudo dnf -y install openvswitch3.5
+sudo systemctl enable --now openvswitch
+sudo ovs-vsctl show
+```
+
+`ovs-vsctl show` prints an id and `ovs_version: "3.5..."`. If `openvswitch3.5`
+is not found, `dnf list 'openvswitch3.*'` shows the versions available; use
+the newest.
+
+### 4.5 Containerlab
+
+```bash
+bash -c "$(curl -sL https://get.containerlab.dev)" -- -v 0.81.0
+containerlab version
+```
+
+### 4.6 SELinux: OpenFlow ports
+
+SELinux only lets Open vSwitch connect to TCP ports labelled
+`openflow_port_t`, which by default are 6633 and 6653. This adds the ports up
+to 6660, so you can also run a controller on another port:
+
+```bash
+sudo dnf -y install policycoreutils-python-utils
+sudo semanage port -a -t openflow_port_t -p tcp 6633-6660
+sudo semanage port -l | grep openflow
+```
+
+The last line should include `6633-6660`.
+
+### 4.7 Container images
+
+The lab hosts and the Ryu controller run from two container images, built
+from the `images/` folder:
+
+```bash
+sudo docker build -t csci60/host images/host   # lab hosts (Alpine Linux + tools)
+sudo docker build -t csci60/ryu  images/ryu    # Ryu 4.34 on Python 3.9 (Lab 2)
+sudo docker images 'csci60/*'
+```
+
+The last command lists both images.
+
+Ryu is no longer maintained and does not install on the Python that ships with
+Rocky Linux 10 (3.12), so it runs in a container with the last versions that
+work together: Python 3.9, Ryu 4.34, eventlet 0.30.2 and setuptools < 58.
+
+## 5. Your first network
+
+```bash
+cd getting-started
+```
 
 A topology file describes the network. `first.clab.yml` in this folder has
 two hosts and one switch:
@@ -98,7 +214,7 @@ Each link is a virtual cable: `h1:eth0` is interface `eth0` on h1, and
    sudo ovs-vsctl show                           # the switch and its ports
    ```
 
-## 4. Running commands on a host
+## 6. Running commands on a host
 
 `docker exec <host> <command>` runs a command on a host:
 
@@ -108,6 +224,9 @@ sudo docker exec h1 ping -c3 10.0.0.2  # h1 pings h2
 sudo docker exec h1 route -n           # h1's routing table
 sudo docker exec h1 hostname           # prints h1
 ```
+
+The ping should show `0% packet loss`. If it does, your VM is ready for the
+labs.
 
 To work on a host for longer, open a shell on it. The prompt changes to the
 host's name, and every command runs on that host until you type `exit`:
@@ -135,7 +254,7 @@ Useful commands on a host:
 | `tcpdump -n -i eth0`                      | watch packets on an interface (Ctrl-C stops) |
 | `iperf -s` / `iperf -c <ip>`              | measure bandwidth (server / client)  |
 
-## 5. Looking at the switch
+## 7. Looking at the switch
 
 ```bash
 sudo ovs-vsctl show                 # bridges and their ports
@@ -148,7 +267,7 @@ With no controller set, an Open vSwitch bridge is a normal learning switch:
 the flow table has one rule, `actions=NORMAL`. In Lab 2 a controller fills
 the flow table instead.
 
-## 6. Cleaning up
+## 8. Cleaning up
 
 Always remove the network when you are done:
 
@@ -164,7 +283,7 @@ sudo docker ps -q
 sudo ovs-vsctl list-br
 ```
 
-## 7. Changing a network
+## 9. Changing a network
 
 Edit the topology file, then deploy again with `--reconfigure`. This removes
 the old hosts and builds new ones, so any addresses you set by hand are gone.
@@ -179,7 +298,7 @@ sudo containerlab deploy -t first.clab.yml --reconfigure
 sudo docker exec h3 ping -c3 10.0.0.1
 ```
 
-## 8. Link speed and delay
+## 10. Link speed and delay
 
 Real links have limited speed and some delay. The `tc` command sets them on an
 interface:
@@ -204,7 +323,7 @@ sudo docker exec -d h2 iperf -s
 sudo docker exec h1 iperf -c 10.0.0.2 -t 5
 ```
 
-## 9. Exercises
+## 11. Exercises
 
 1. Build two switches connected through a host, with two hosts on each switch.
    Can the hosts on different switches ping each other? Why?
@@ -212,7 +331,15 @@ sudo docker exec h1 iperf -c 10.0.0.2 -t 5
    delay, with 10 ms delay on h1, and with 10 ms delay on both h1 and h2.
 3. Use `tcpdump` on h2 while h1 pings it. Which packets do you see?
 
-Remember to clean up (section 6) after each one.
+Remember to clean up (section 8) after each one.
+
+## Updating the course files
+
+```bash
+cd ~/csci60-labs && git pull
+```
+
+Rebuild the images (step 4.7) only if `images/` changed.
 
 ## FAQ
 
@@ -221,17 +348,21 @@ Remember to clean up (section 6) after each one.
 
 2. **`deploy` says the lab already exists, or `add-br` says the switch
    already exists.**
-   Something is left over from an earlier try. Clean up (section 6) and
+   Something is left over from an earlier try. Clean up (section 8) and
    start again.
 
 3. **`ping: connect: Network unreachable`.**
    The host has no route to that address. Check its address and mask
    (`ifconfig`) and its routes (`route -n`).
 
-4. **I closed my SSH window and the network is still there.**
-   The network keeps running until you destroy it. Log in again and clean up
-   (section 6).
+4. **I restarted the VM and my network is broken.**
+   Containers and switches do not survive a restart cleanly. Clean up
+   (section 8), then build the network again.
 
 5. **What is `prefix: ""` in the topology file?**
    Without it, Containerlab names the containers `clab-first-h1` and so on.
    With it, they are just `h1`, `h2`, which is shorter to type.
+
+6. **Docker or `dnf` fails with a network error.**
+   The VM has no internet access. Check the VM's network adapter is set to
+   NAT, and that `ping -c3 rockylinux.org` works in the VM.

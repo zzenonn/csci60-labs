@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 2: Connectivity Devices (Hubs and Switches) with OpenFlow
 
-*Original by William Emmanuel Yu, Ph.D. (September 2022). Updated for the
-CSCI 60 lab server (Containerlab, Open vSwitch and Ryu).*
+*Original by William Emmanuel Yu, Ph.D. (September 2022). Updated for
+Containerlab, Open vSwitch and Ryu on your CSCI 60 VM.*
 
 ## Objectives
 
@@ -13,8 +13,7 @@ CSCI 60 lab server (Containerlab, Open vSwitch and Ryu).*
 
 ## Materials
 
-- Your CSCI 60 lab server (ask your instructor) and an SSH client: `ssh` on
-  Linux, macOS or Windows PowerShell, or PuTTY.
+- Your CSCI 60 VM, set up as in *Getting Started*.
 - Familiarity with the Linux command line
   (<http://www.tldp.org/LDP/abs/html/basic.html>).
 - *Getting Started* (`getting-started/README.md` in this repository).
@@ -41,7 +40,7 @@ CSCI 60 lab server (Containerlab, Open vSwitch and Ryu).*
 ## The pieces
 
 ```text
- SSH session 1: CONTROLLER                 SSH session 2: NETWORK
+ Terminal 1: CONTROLLER                 Terminal 2: NETWORK
  Ryu running sw_tutorial.py                docker exec h1 ping ...
         ^                                          |
         |  OpenFlow 1.0, tcp 127.0.0.1:6633        v
@@ -74,11 +73,10 @@ until you choose one.
 
 ## Procedure
 
-1. Log in to the lab server and go to this lab's folder.
+1. Log in to your VM and go to this lab's folder.
 
    ```bash
-   ssh <username>@<lab-server>
-   cd csci60-labs/lab2-hubs-switches
+   cd ~/csci60-labs/lab2-hubs-switches
    ```
 
 2. Create the switch. Open vSwitch calls a switch a *bridge*.
@@ -89,7 +87,7 @@ until you choose one.
 
 3. Make `s1` an OpenFlow switch that takes all its decisions from a
    controller: speak OpenFlow 1.0, forward nothing on its own
-   (`fail_mode=secure`), and connect to the controller on this server, port
+   (`fail_mode=secure`), and connect to the controller on this VM, port
    6633.
 
    ```bash
@@ -120,7 +118,7 @@ until you choose one.
    ```
 
    (Ryu runs inside a container, `csci60/ryu`. `--net host` lets it listen on
-   the server's port 6633. `-v $PWD:/lab` makes this folder, with
+   the VM's port 6633. `-v $PWD:/lab` makes this folder, with
    `sw_tutorial.py`, visible inside it.)
 
    You should see `Switch ... connected.` Then set the *Dumb Hub* logic by
@@ -130,12 +128,11 @@ until you choose one.
    mode SW_DUMBHUB
    ```
 
-6. Log in again in a second SSH session and go to the lab folder. This is the
-   **NETWORK session**.
+6. Open a second terminal on your VM (a second login, or `ssh` from your
+   computer) and go to the lab folder. This is the **NETWORK session**.
 
    ```bash
-   ssh <username>@<lab-server>
-   cd csci60-labs/lab2-hubs-switches
+   cd ~/csci60-labs/lab2-hubs-switches
    ```
 
 7. Ping between every pair of hosts. Each host is a container, and
@@ -216,8 +213,9 @@ until you choose one.
 
 ## Frequently Asked Questions
 
-1. **How do I transfer files to and from the lab server?**
-   `scp` (Linux, macOS, Windows PowerShell) or WinSCP on Windows.
+1. **How do I transfer files to and from my VM?**
+   `scp` (Linux, macOS, Windows PowerShell) or WinSCP on Windows, or the
+   hypervisor's shared folders.
 
 2. **Every ping fails.**
    Check that the controller is running (step 5) and that you chose a switch

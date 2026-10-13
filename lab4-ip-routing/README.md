@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 4: TCP/IP Routing
 
-*Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for the
-CSCI 60 lab server (Containerlab and Open vSwitch).*
+*Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for
+Containerlab and Open vSwitch on your CSCI 60 VM.*
 
 ## Objectives
 
@@ -18,8 +18,7 @@ CSCI 60 lab server (Containerlab and Open vSwitch).*
   On Windows you need administrator rights to change network settings and
   routes. To enable IP routing on Windows see
   <https://www.wikihow.com/Enable-IP-Routing>.
-- Your CSCI 60 lab server (ask your instructor) and an SSH client: `ssh` on
-  Linux, macOS or Windows PowerShell, or PuTTY.
+- Your CSCI 60 VM, set up as in *Getting Started*.
 - Familiarity with the Linux command line
   (<http://www.tldp.org/LDP/abs/html/basic.html>).
 - *Getting Started* (`getting-started/README.md` in this repository).
@@ -68,11 +67,10 @@ CSCI 60 lab server (Containerlab and Open vSwitch).*
 
 ## Emulated Network Procedure
 
-1. Log in to the lab server and go to this lab's folder.
+1. Log in to your VM and go to this lab's folder.
 
    ```bash
-   ssh <username>@<lab-server>
-   cd csci60-labs/lab4-ip-routing
+   cd ~/csci60-labs/lab4-ip-routing
    ```
 
 2. Create the four switches. With no controller set, each works as a normal

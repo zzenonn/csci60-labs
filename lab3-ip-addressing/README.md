@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 3: TCP/IP PC Networking Configuration
 
-*Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for the
-CSCI 60 lab server (Containerlab and Open vSwitch).*
+*Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for
+Containerlab and Open vSwitch on your CSCI 60 VM.*
 
 ## Objectives
 
@@ -11,8 +11,7 @@ CSCI 60 lab server (Containerlab and Open vSwitch).*
 ## Materials
 
 - PCs with a working MS Windows / Linux installation (Physical Host part).
-- Your CSCI 60 lab server (ask your instructor) and an SSH client: `ssh` on
-  Linux, macOS or Windows PowerShell, or PuTTY.
+- Your CSCI 60 VM, set up as in *Getting Started*.
 - Familiarity with the Linux command line
   (<http://www.tldp.org/LDP/abs/html/basic.html>).
 - *Getting Started* (`getting-started/README.md` in this repository).
@@ -49,11 +48,10 @@ classroom computers and must be returned to their previous configuration.
 
 ## Procedure for the Emulated Network
 
-1. Log in to the lab server and go to this lab's folder.
+1. Log in to your VM and go to this lab's folder.
 
    ```bash
-   ssh <username>@<lab-server>
-   cd csci60-labs/lab3-ip-addressing
+   cd ~/csci60-labs/lab3-ip-addressing
    ```
 
 2. Create the switch. Open vSwitch calls a switch a *bridge*. With no
@@ -153,7 +151,7 @@ classroom computers and must be returned to their previous configuration.
 ## Frequently Asked Questions
 
 1. **`ping: connect: Network unreachable`.**
-   This is an answer, not a problem with the server: the host has no route to
+   This is an answer, not a problem with your VM: the host has no route to
    that address. Think about which network each address is in.
 
 2. **`containerlab deploy` says the lab already exists, or `ovs-vsctl add-br`
