@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+"""csci60 - one command for the CSCI 60 Containerlab labs.
+
+This file is installed as /usr/bin/csci60. It replaces `sudo mn`
+and the POX launcher with a single front door:
+
+  csci60 start --topo single,3              like: sudo mn --topo single,3
+  csci60 start --topo single,3 --controller remote
+  csci60 run lab4.py                        like: sudo python lab4.py
+  csci60 cli | status | stop | reset
+  csci60 ryu start <app> | stop | logs | apps
+  csci60 doctor
+"""
+
+import argparse
+import os
+import sys
+
+# Allow running from a source checkout as well as from /opt/csci60.
+HERE = os.path.dirname(os.path.realpath(__file__))
+for candidate in (os.path.join(HERE, ".."), "/opt/csci60/toolkit"):
+    if os.path.isdir(os.path.join(candidate, "csci60")):
+        sys.path.insert(0, os.path.abspath(candidate))
+        break
+
+from csci60 import util  # noqa: E402
+from csci60 import ryu as ryu_mod  # noqa: E402
+from csci60.util import info, run  # noqa: E402
+
+NEEDS_ROOT = {"start", "run", "cli", "stop", "reset", "status", "shell",
+              "ryu", "doctor", "flows"}
+
+
+def cmd_start(args):
+    from csci60 import topo as topo_mod
+    from csci60.net import Network, RemoteController
+    from csci60.cli import CLI
+
+    try:
+        topology = topo_mod.parse(args.topo)
+    except (ValueError, TypeError) as exc:
+        util.die(str(exc))
+    remote = args.controller == "remote"
+    net = Network(args.name, autoSetMacs=args.mac,
+                  controller=RemoteController if remote else None)
+    topology.build(net)
+    if remote:
+        net.addController("c0", controller=RemoteController,
+                          ip=args.controller_ip, port=args.controller_port)
+    else:
+        net.addController("c0")
+    if args.link:
+        params = _parse_link(args.link)
+        for l in net.links:
+            l.params.update(params)
+    net.start()
+    if args.test == "pingall":
+        lost = net.pingAll()
+        net.stop()
+        return 0 if lost == 0 else 1
+    if args.detach:
+        info("Network '%s' is running. Open its console with: csci60 cli"
+             % args.name)
+        return 0
+    CLI(net)
+    net.stop()
+    return 0
+
+
+def _parse_link(spec):
+    """Mininet's --link tc,bw=10,delay=10ms"""
+    parts = spec.split(",")
+    if parts[0] != "tc":
+        util.die("--link: only 'tc,...' is supported (e.g. tc,bw=10,delay=10ms)")
+    params = {}
+    for p in parts[1:]:
+        k, _, v = p.partition("=")
+        params[k] = float(v) if k in ("bw", "loss") else v
+    return params
+
+
+def cmd_run(args):
+    script = os.path.abspath(args.script)
+    if not os.path.isfile(script):
+        util.die("no such file: %s" % args.script)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [p for p in [os.path.join(HERE, ".."), "/opt/csci60/toolkit",
+                     env.get("PYTHONPATH")] if p])
+    if args.detach:
+        env["CSCI60_DETACH"] = "1"
+    os.chdir(os.path.dirname(script))
+    os.execvpe(sys.executable, [sys.executable, script] + args.args, env)
+
+
+def _current_or_die():
+    from csci60.net import current_network
+    name = current_network()
+    if not name:
+        util.die("no network is running. Start one with 'csci60 start' or "
+                 "'csci60 run <script>'.")
+    return name
+
+
+def cmd_cli(args):
+    from csci60.net import Network
+    from csci60.cli import CLI
+    net = Network.load(_current_or_die())
+    CLI(net, script=args.script)
+    return 0
+
+
+def cmd_shell(args):
+    from csci60.net import Network, Host
+    net = Network.load(_current_or_die())
+    node = net.nameToNode.get(args.node)
+    if not isinstance(node, Host):
+        util.die("%s is not a host in network '%s'" % (args.node, net.name))
+    flags = "-it" if sys.stdin.isatty() else "-i"
+    os.execvp("docker", ["docker", "exec", flags, node.container, "bash"])
+
+
+def cmd_status(args):
+    from csci60.net import current_network, Network
+    name = current_network()
+    ctrls = ryu_mod.running()
+    if not name:
+        print("Network:     none running")
+    else:
+        net = Network.load(name)
+        print("Network:     %s" % name)
+        print("Hosts:       %s" % " ".join(h.name for h in net.hosts))
+        print("Switches:    %s" % " ".join(s.name for s in net.switches))
+        for s in net.switches:
+            out = util.sh("ovs-vsctl get-controller %s; ovs-vsctl "
+                          "get-fail-mode %s" % (s.name, s.name),
+                          check=False).stdout.split()
+            print("  %-10s controller=%s fail-mode=%s" % (
+                s.name, out[0] if len(out) > 1 else "none (learning switch)",
+                out[-1] if out else "?"))
+    print("Controllers: %s" % (" ".join(ctrls) if ctrls else "none running"))
+    return 0
+
+
+def cmd_stop(args):
+    from csci60.net import current_network, destroy
+    name = current_network()
+    if name:
+        info("Stopping network '%s'" % name)
+        destroy(name)
+    else:
+        info("No network running")
+    if args.all:
+        ryu_mod.stop()
+    return 0
+
+
+def cmd_reset(args):
+    """Remove every csci60 network, bridge, host and controller."""
+    from csci60.net import destroy
+    info("Removing all csci60 networks and controllers")
+    if os.path.isdir(util.LABS_ROOT):
+        for name in os.listdir(util.LABS_ROOT):
+            destroy(name)
+    # Anything else containerlab still knows about from csci60.
+    leftovers = run(["docker", "ps", "-a", "--format",
+                     "{{.Names}} {{.Label \"clab-topo-file\"}}"],
+                    check=False).stdout.splitlines()
+    for line in leftovers:
+        parts = line.split()
+        if len(parts) == 2 and parts[1].startswith(util.LABS_ROOT):
+            run(["docker", "rm", "-f", parts[0]], check=False)
+    for br in util.sh("ovs-vsctl --bare --columns=name find bridge "
+                      "external_ids:csci60!=\"\"", check=False).stdout.split():
+        util.sh("ovs-vsctl --if-exists del-br %s" % br, check=False)
+    ryu_mod.stop()
+    try:
+        os.remove(util.CURRENT_FILE)
+    except OSError:
+        pass
+    info("Clean. Start again with 'csci60 start' or 'csci60 run <script>'.")
+    return 0
+
+
+def cmd_flows(args):
+    from csci60.net import Network
+    net = Network.load(_current_or_die())
+    for s in net.switches:
+        if args.switch and s.name != args.switch:
+            continue
+        print("*** %s" % s.name)
+        sys.stdout.write(s.dpctl("dump-flows"))
+    return 0
+
+
+def cmd_ryu(args):
+    if args.ryu_cmd == "start":
+        return ryu_mod.start(args.apps, port=args.port, detach=args.detach,
+                             verbose=args.verbose)
+    if args.ryu_cmd == "stop":
+        ryu_mod.stop(args.port)
+        return 0
+    if args.ryu_cmd == "logs":
+        return ryu_mod.logs(args.port, follow=not args.no_follow)
+    if args.ryu_cmd == "apps":
+        for a in ryu_mod.list_apps():
+            print(a)
+        return 0
+    if args.ryu_cmd in ("mode", "modes", "clear", "detach"):
+        extra = [args.mode] if getattr(args, "mode", None) else []
+        ryu_mod.control([args.ryu_cmd] + extra, port=args.port)
+        return 0
+    if args.ryu_cmd == "ctl":
+        import json
+        data = None
+        if args.json:
+            data = json.loads(args.json)
+        result = ryu_mod.rest(args.path, port=args.port, data=data)
+        print(json.dumps(result, indent=2))
+        return 0
+    return 1
+
+
+def cmd_doctor(args):
+    ok = True
+
+    def check(label, command):
+        nonlocal ok
+        proc = util.sh(command, check=False)
+        good = proc.returncode == 0
+        ok = ok and good
+        first = ((proc.stdout or proc.stderr).strip().splitlines() or [""])[0]
+        print("[%s] %-28s %s" % ("ok" if good else "!!", label, first[:60]))
+
+    check("docker", "docker info --format '{{.ServerVersion}}'")
+    check("open vswitch", "ovs-vsctl --version | head -1")
+    check("ovs kernel module", "lsmod | grep -q '^openvswitch' && echo loaded")
+    check("containerlab", "containerlab version | grep -m1 version")
+    check("host image", "docker image inspect %s --format '{{.Id}}'"
+          % util.HOST_IMAGE)
+    check("ryu image", "docker run --rm %s ryu-manager --version"
+          % util.RYU_IMAGE)
+    check("ryu apps", "ls %s | grep -c .py" % ryu_mod.APPS_DIR)
+    check("netem (tc links)", "modprobe sch_netem && echo available")
+    check("selinux openflow ports",
+          "if ! selinuxenabled 2>/dev/null; then echo 'selinux off'; "
+          "else semanage port -l | grep '^openflow_port_t' | grep -q 6633-6660 "
+          "&& echo 6633-6660; fi")
+    print("All good." if ok else
+          "Something is missing; see setup/README.md "
+          "(server setup steps)")
+    return 0 if ok else 1
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="csci60",
+                                description="CSCI 60 network labs on Containerlab")
+    sub = p.add_subparsers(dest="cmd")
+
+    s = sub.add_parser("start", help="build a network from a built-in topology "
+                                     "(like 'sudo mn')")
+    s.add_argument("--topo", default="minimal",
+                   help="minimal | single,N | linear,N | tree,depth=D,fanout=F")
+    s.add_argument("--controller", default="default",
+                   help="'default' (built-in learning switch) or 'remote' (Ryu)")
+    s.add_argument("--controller-ip", default="127.0.0.1")
+    s.add_argument("--controller-port", type=int, default=6633)
+    s.add_argument("--mac", action="store_true",
+                   help="simple MACs: h1=00:00:00:00:00:01, ...")
+    s.add_argument("--link", help="link limits, e.g. tc,bw=10,delay=10ms")
+    s.add_argument("--test", choices=["pingall"],
+                   help="run a test and exit (like 'mn --test pingall')")
+    s.add_argument("--switch", default="ovsk",
+                   help="accepted for Mininet compatibility (always OVS)")
+    s.add_argument("--name", default="csci60", help="network name")
+    s.add_argument("-d", "--detach", action="store_true",
+                   help="leave the network running and return to the shell")
+    s.set_defaults(func=cmd_start)
+
+    r = sub.add_parser("run", help="run a topology script (like 'sudo python x.py')")
+    r.add_argument("script")
+    r.add_argument("args", nargs=argparse.REMAINDER)
+    r.add_argument("-d", "--detach", action="store_true",
+                   help="leave the network running when the script ends")
+    r.set_defaults(func=cmd_run)
+
+    c = sub.add_parser("cli", help="open the console of the running network")
+    c.add_argument("--script", help="run commands from a file, then exit")
+    c.set_defaults(func=cmd_cli)
+
+    sh_ = sub.add_parser("shell", help="open a bash shell inside a host")
+    sh_.add_argument("node")
+    sh_.set_defaults(func=cmd_shell)
+
+    sub.add_parser("status", help="show what is running").set_defaults(
+        func=cmd_status)
+
+    st = sub.add_parser("stop", help="remove the running network")
+    st.add_argument("--all", action="store_true",
+                    help="also stop Ryu controllers")
+    st.set_defaults(func=cmd_stop)
+
+    sub.add_parser("reset", help="remove everything csci60 created "
+                                 "(networks and controllers)").set_defaults(
+        func=cmd_reset)
+
+    fl = sub.add_parser("flows", help="show the OpenFlow table of each switch")
+    fl.add_argument("switch", nargs="?")
+    fl.set_defaults(func=cmd_flows)
+
+    ry = sub.add_parser("ryu", help="run the Ryu SDN controller")
+    rsub = ry.add_subparsers(dest="ryu_cmd")
+    rs = rsub.add_parser("start", help="start Ryu with one or more apps")
+    rs.add_argument("apps", nargs="+",
+                    help="app name from ryu-apps, or a path to a .py file")
+    rs.add_argument("--port", type=int, default=6633,
+                    help="OpenFlow port (default 6633)")
+    rs.add_argument("-d", "--detach", action="store_true",
+                    help="run in the background")
+    rs.add_argument("-v", "--verbose", action="store_true")
+    rt = rsub.add_parser("stop", help="stop Ryu (all instances by default)")
+    rt.add_argument("--port", type=int)
+    rl = rsub.add_parser("logs", help="show a background controller's output")
+    rl.add_argument("port", nargs="?", type=int, default=6633)
+    rl.add_argument("--no-follow", action="store_true")
+    rsub.add_parser("apps", help="list the course's Ryu apps")
+    rm = rsub.add_parser("mode", help="Lab 2: switch the hub/switch behaviour "
+                                      "(clears all flows first)")
+    rm.add_argument("mode", help="e.g. SW_DUMBHUB, SW_LAZYHUB, SW_IDEALPAIRSWITCH")
+    rm.add_argument("--port", type=int, default=6633)
+    for name, text in (("modes", "Lab 2: list behaviours and show the active one"),
+                       ("clear", "clear every flow on every switch"),
+                       ("detach", "Lab 2: stop handling PacketIns")):
+        x = rsub.add_parser(name, help=text)
+        x.add_argument("--port", type=int, default=6633)
+    rc = rsub.add_parser("ctl", help="send a control request to a running app")
+    rc.add_argument("path", help="e.g. /csci60/mode")
+    rc.add_argument("json", nargs="?", help='JSON body, e.g. \'{"mode": "SW_LAZYHUB"}\'')
+    rc.add_argument("--port", type=int, default=6633)
+    ry.set_defaults(func=cmd_ryu)
+
+    sub.add_parser("doctor", help="check that the server is set up "
+                                  "correctly").set_defaults(func=cmd_doctor)
+
+    args = p.parse_args(argv)
+    if not args.cmd:
+        p.print_help()
+        return 0
+    if args.cmd == "ryu" and not args.ryu_cmd:
+        ry.print_help()
+        return 0
+    if args.cmd in NEEDS_ROOT and not (args.cmd == "ryu" and args.ryu_cmd in (
+            "apps", "mode", "modes", "clear", "detach", "ctl")):
+        util.elevate()
+    try:
+        return args.func(args) or 0
+    except util.CmdError as exc:
+        util.die(str(exc))
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())
