@@ -288,8 +288,9 @@ sudo ovs-vsctl list-br
 Edit the topology file, then deploy again with `--reconfigure`. This removes
 the old hosts and builds new ones, so any addresses you set by hand are gone.
 
-Try it: add a third host `h3` with address `10.0.0.3/24`, connected to
-`s1:s1-eth3`.
+Try it, starting after the clean-up in section 8: add a third host `h3` with
+address `10.0.0.3/24`, connected to `s1:s1-eth3`. Then create the switch
+again and deploy.
 
 ```bash
 nano first.clab.yml
