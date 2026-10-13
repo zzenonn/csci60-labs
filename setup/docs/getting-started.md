@@ -272,7 +272,8 @@ every node name (`h1`, `s1`, ...) are already defined.
    `csci60 ryu start <app>` (for example `simple_switch`).
 
 5. **The controller output scrolled away.**
-   `csci60 ryu logs` shows it again (for one started with `-d`).
+   `csci60 ryu logs` shows it again (for one started with `-d`). It keeps
+   following new output; press `Ctrl-C` to quit.
 
 6. **`xterm` does not open.**
    No graphics on the server. Use `csci60 shell <host>` in a second SSH

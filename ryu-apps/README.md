@@ -11,7 +11,7 @@ The lab server setup (`setup/README.md`, step 8) copies this folder to
 csci60 ryu apps                      # list them
 csci60 ryu start sw_tutorial         # run one in the foreground (Ctrl-C stops it)
 csci60 ryu start simple_switch -d    # run one in the background
-csci60 ryu logs                      # see a background controller's output
+csci60 ryu logs                      # follow a background controller's output (Ctrl-C to quit)
 csci60 ryu stop                      # stop all controllers
 ```
 

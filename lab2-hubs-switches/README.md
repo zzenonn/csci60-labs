@@ -176,7 +176,8 @@ csci60 lab server (Containerlab + Open vSwitch + Ryu).*
 5. **The controller output scrolls too fast.**
    Run the controller in the background instead
    (`csci60 ryu start sw_tutorial -d`) and read the output with
-   `csci60 ryu logs` after each `pingall`.
+   `csci60 ryu logs` after each `pingall`. It keeps following new output;
+   press `Ctrl-C` to get your prompt back.
 
 ## How this lab fits together
 
