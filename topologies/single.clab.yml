@@ -1,0 +1,41 @@
+# SINGLE: three hosts on one switch.
+#
+#          s1
+#        / |  \
+#      h1  h2  h3
+#
+# The simplest network: every host plugs into the same switch, like the
+# computers in one room plugged into one office switch. Every host can reach
+# every other host in one hop. Use it to try out commands, or whenever you
+# need "a few hosts that can talk to each other".
+#
+# Mininet calls this "--topo single,3".
+#
+# Build it:
+#   sudo ovs-vsctl add-br s1
+#   sudo containerlab deploy -t single.clab.yml
+# Remove it:
+#   sudo containerlab destroy -t single.clab.yml
+#   sudo ovs-vsctl del-br s1
+name: single
+prefix: ""                # name the containers just h1, h2, h3
+
+topology:
+  defaults:
+    kind: linux           # a host is a Linux container ...
+    image: csci60/host    # ... started from this image
+    network-mode: none    # with no network except the links below
+  nodes:
+    s1:
+      kind: ovs-bridge    # an Open vSwitch switch (create it first, see above)
+    h1:
+      exec: ["ip addr add 10.0.0.1/24 dev eth0"]
+    h2:
+      exec: ["ip addr add 10.0.0.2/24 dev eth0"]
+    h3:
+      exec: ["ip addr add 10.0.0.3/24 dev eth0"]
+  links:
+    # Each link is a cable: host interface <-> switch port.
+    - {endpoints: ["h1:eth0", "s1:s1-eth1"], mtu: 1500}   # h1 plugs into port 1 of s1
+    - {endpoints: ["h2:eth0", "s1:s1-eth2"], mtu: 1500}   # h2 plugs into port 2 of s1
+    - {endpoints: ["h3:eth0", "s1:s1-eth3"], mtu: 1500}   # h3 plugs into port 3 of s1

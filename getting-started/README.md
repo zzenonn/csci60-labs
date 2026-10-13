@@ -347,6 +347,12 @@ sudo docker exec h1 iperf -c 10.0.0.2 -t 5
 
 Remember to clean up (section 8) after each one.
 
+## Next: more shapes
+
+[`topologies/`](../topologies/README.md) has ready-made networks of the common
+shapes: single switch, linear chain, tree, a switch with 100 hosts, and a
+data-centre Clos (leaf-spine). Each file explains its shape at the top.
+
 ## Updating the course files
 
 ```bash

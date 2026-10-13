@@ -1,0 +1,12 @@
+# Settings for clos.clab.gotmpl. Containerlab reads this file automatically
+# because its name matches the topology file.
+#
+# spines:         number of spine switches (the top row)
+# leaves:         number of leaf switches (the bottom row)
+# hosts_per_leaf: hosts plugged into each leaf
+#
+# Keep leaves x hosts_per_leaf at 254 or fewer: all hosts share
+# 10.0.0.0/24.
+spines: 2
+leaves: 4
+hosts_per_leaf: 2

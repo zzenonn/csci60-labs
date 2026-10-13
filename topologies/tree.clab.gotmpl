@@ -1,0 +1,82 @@
+# TREE: switches arranged in levels, hosts on the bottom level.
+#
+# With the settings in tree.clab_vars.yaml (depth 2, fanout 2):
+#
+#                 s1                <- level 1: the root (core)
+#               /    \
+#             s2      s3            <- level 2: the leaf switches
+#            /  \    /  \
+#          h1   h2  h3   h4         <- hosts
+#
+# Each switch connects to "fanout" switches below it, and the switches on the
+# last level connect to "fanout" hosts each. This is how campus and building
+# networks are often wired: a core switch, a switch per floor, hosts on each
+# floor. Hosts under the same leaf switch are 1 switch apart; hosts under
+# different leaves go up to the root and back down. Use it to compare paths
+# of different lengths, and to see the root as a single point of failure.
+#
+# Mininet calls this "--topo tree,depth=2,fanout=2".
+#
+# This file is a TEMPLATE: Containerlab expands the parts in double curly braces, using the
+# numbers in tree.clab_vars.yaml, before it builds the network. To see the
+# plain topology it produces:
+#   sudo containerlab graph -t tree.clab.gotmpl --mermaid --offline
+#   cat clab-tree/graph/tree.clab.mermaid
+#
+# Switch numbering, level by level from the root: s1, then s2..s(1+fanout),
+# and so on. On every switch, ports eth1..eth<fanout> go down to its
+# children, and port eth<fanout+1> goes up to its parent.
+#
+# Build it (with depth 2, fanout 2):
+#   sudo ovs-vsctl add-br s1 -- add-br s2 -- add-br s3
+#   sudo containerlab deploy -t tree.clab.gotmpl
+# Remove it:
+#   sudo containerlab destroy -t tree.clab.gotmpl
+#   sudo ip link del s2-eth3
+#   sudo ip link del s3-eth3
+#   sudo ovs-vsctl del-br s1 -- del-br s2 -- del-br s3
+# (destroy removes the hosts but not the cables between two switches; deleting
+# one end of a cable removes both ends.)
+# With other settings, create switches s1 up to the number of switches
+# (1 + fanout + fanout^2 + ... for depth levels).
+{{- $f := $.fanout }}
+{{- /* width: switches on the current level; switches: total so far */}}
+{{- $width := 1 }}
+{{- $switches := 1 }}
+{{- if gt $.depth 1 }}{{ range $level := seq 2 $.depth }}
+{{- $width = mul $width $f }}
+{{- $switches = add $switches $width }}
+{{- end }}{{ end }}
+{{- $hosts := mul $width $f }}
+{{- $firstLeaf := add (subtract $switches $width) 1 }}
+name: tree
+prefix: ""
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none
+  nodes:
+    # the switches
+{{- range $s := seq 1 $switches }}
+    s{{ $s }}: {kind: ovs-bridge}
+{{- end }}
+    # the hosts: host h<N> gets address 10.0.0.<N>
+{{- range $h := seq 1 $hosts }}
+    h{{ $h }}:
+      exec: ["ip addr add 10.0.0.{{ $h }}/24 dev eth0"]
+{{- end }}
+  links:
+    # switch-to-switch: every switch except the root plugs into its parent
+{{- if gt $switches 1 }}{{ range $k := seq 2 $switches }}
+{{- $parent := add (idiv (subtract $k 2) $f) 1 }}
+{{- $port := add (rem (subtract $k 2) $f) 1 }}
+    - {endpoints: ["s{{ $parent }}:s{{ $parent }}-eth{{ $port }}", "s{{ $k }}:s{{ $k }}-eth{{ add $f 1 }}"], mtu: 1500}
+{{- end }}{{ end }}
+    # hosts: "fanout" hosts on each leaf switch
+{{- range $h := seq 1 $hosts }}
+{{- $leaf := add $firstLeaf (idiv (subtract $h 1) $f) }}
+{{- $port := add (rem (subtract $h 1) $f) 1 }}
+    - {endpoints: ["h{{ $h }}:eth0", "s{{ $leaf }}:s{{ $leaf }}-eth{{ $port }}"], mtu: 1500}
+{{- end }}

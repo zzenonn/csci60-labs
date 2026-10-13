@@ -1,0 +1,78 @@
+# CLOS (leaf-spine): every leaf switch connects to every spine switch.
+#
+# With the settings in clos.clab_vars.yaml (2 spines, 4 leaves, 2 hosts per
+# leaf):
+#
+#            spine1              spine2           <- spines
+#           / |  |  \          / |  |  \
+#      (every leaf connects to every spine)
+#           \ |  |  /          \ |  |  /
+#       leaf1   leaf2   leaf3   leaf4             <- leaves
+#        / \     / \     / \     / \
+#      h1  h2  h3  h4  h5  h6  h7  h8             <- hosts
+#
+# The way modern data centres are wired. Any two hosts on different leaves
+# are always the same distance apart (leaf -> spine -> leaf), and because
+# there is more than one spine there is more than one path: losing a spine
+# or a cable does not cut anyone off, and more spines means more capacity.
+# Use it to study redundancy and multiple paths. Mininet has no built-in
+# version of this topology.
+#
+# More than one path means the network has LOOPS. A broadcast (such as an
+# ARP request) would circle the loop forever and flood the network. To stop
+# that, each switch runs the Rapid Spanning Tree Protocol (RSTP), which
+# turns off just enough ports to break the loops and turns them back on if
+# a link fails. Switch it on when you create each switch, BEFORE deploying.
+#
+# This file is a TEMPLATE: Containerlab expands the parts in double curly braces, using the
+# numbers in clos.clab_vars.yaml, before it builds the network. To see the
+# plain topology it produces:
+#   sudo containerlab graph -t clos.clab.gotmpl --mermaid --offline
+#   cat clab-clos/graph/clos.clab.mermaid
+#
+# Port plan:
+#   spineS-ethL   spine S's cable to leaf L
+#   leafL-ethS    leaf L's cable to spine S (ports 1..spines)
+#   leafL-eth<spines+J>  leaf L's J-th host
+#
+# Build it (with the settings above):
+#   for s in spine1 spine2 leaf1 leaf2 leaf3 leaf4; do sudo ovs-vsctl add-br $s -- set bridge $s rstp_enable=true; done
+#   sudo containerlab deploy -t clos.clab.gotmpl
+# Wait about 10 seconds for RSTP to settle before you ping.
+# Remove it:
+#   sudo containerlab destroy -t clos.clab.gotmpl
+#   for l in 1 2 3 4; do for s in 1 2; do sudo ip link del leaf$l-eth$s; done; done
+#   for s in spine1 spine2 leaf1 leaf2 leaf3 leaf4; do sudo ovs-vsctl del-br $s; done
+# (destroy removes the hosts but not the cables between two switches; the
+# middle line deletes those. Deleting one end of a cable removes both ends.)
+{{- $hpl := $.hosts_per_leaf }}
+name: clos
+prefix: ""
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none
+  nodes:
+{{- range $s := seq 1 $.spines }}
+    spine{{ $s }}: {kind: ovs-bridge}
+{{- end }}
+{{- range $l := seq 1 $.leaves }}
+    leaf{{ $l }}: {kind: ovs-bridge}
+{{- end }}
+{{- range $l := seq 1 $.leaves }}{{ range $j := seq 1 $hpl }}
+{{- $h := add (mul (subtract $l 1) $hpl) $j }}
+    h{{ $h }}:
+      exec: ["ip addr add 10.0.0.{{ $h }}/24 dev eth0"]
+{{- end }}{{ end }}
+  links:
+    # the fabric: every leaf to every spine
+{{- range $l := seq 1 $.leaves }}{{ range $s := seq 1 $.spines }}
+    - {endpoints: ["leaf{{ $l }}:leaf{{ $l }}-eth{{ $s }}", "spine{{ $s }}:spine{{ $s }}-eth{{ $l }}"], mtu: 1500}
+{{- end }}{{ end }}
+    # hosts on each leaf
+{{- range $l := seq 1 $.leaves }}{{ range $j := seq 1 $hpl }}
+{{- $h := add (mul (subtract $l 1) $hpl) $j }}
+    - {endpoints: ["h{{ $h }}:eth0", "leaf{{ $l }}:leaf{{ $l }}-eth{{ add $.spines $j }}"], mtu: 1500}
+{{- end }}{{ end }}

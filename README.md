@@ -16,6 +16,9 @@ Work through, in order:
 3. [Lab 3: TCP/IP addressing](lab3-ip-addressing/README.md)
 4. [Lab 4: TCP/IP routing](lab4-ip-routing/README.md)
 
+[Sample topologies](topologies/README.md) you can build any time after
+Getting Started.
+
 ## What is in here
 
 | Folder                | What it is                                                     |
@@ -24,6 +27,7 @@ Work through, in order:
 | `lab2-hubs-switches/` | Lab 2 handout, `lab2.clab.yml`, and `sw_tutorial.py` (the os-ken controller app) |
 | `lab3-ip-addressing/` | Lab 3 handout and `lab3.clab.yml`                              |
 | `lab4-ip-routing/`    | Lab 4 handout and `lab4.clab.yml`                              |
+| `topologies/`         | Sample topologies: single, linear, tree, fanout (100 hosts), Clos |
 | `images/`             | Container images: lab hosts, and the os-ken controller         |
 
 Only Lab 2 uses a controller. In Labs 3 and 4 the switches are normal

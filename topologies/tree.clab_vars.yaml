@@ -1,0 +1,12 @@
+# Settings for tree.clab.gotmpl. Containerlab reads this file automatically
+# because its name matches the topology file.
+#
+# depth:  number of switch levels (1 = a single switch)
+# fanout: how many children each switch has: switches below it, or, on the
+#         last level, hosts
+#
+# depth 2, fanout 2 gives 3 switches and 4 hosts. depth 2, fanout 3 gives
+# 4 switches and 9 hosts. Keep the number of hosts (fanout to the power of
+# depth) at 254 or fewer: they all share 10.0.0.0/24.
+depth: 2
+fanout: 2

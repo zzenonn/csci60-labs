@@ -1,0 +1,62 @@
+# LINEAR: four switches in a chain, one host on each.
+#
+#     h1      h2      h3      h4
+#     |       |       |       |
+#     s1 ---- s2 ---- s3 ---- s4
+#
+# Switches connected one after the other, like rooms along a corridor, each
+# with its own switch, joined to the next room's. Traffic from h1 to h4
+# crosses every switch, so the path gets longer the further apart two hosts
+# are. Use it to see how distance (number of hops) affects delay, and how one
+# broken link splits the network in two.
+#
+# Mininet calls this "--topo linear,4".
+#
+# Port plan on every switch sK:
+#   sK-eth1  the host hK
+#   sK-eth2  the switch before it (towards s1)
+#   sK-eth3  the switch after it  (towards s4)
+#
+# Build it (one command creates all four switches):
+#   sudo ovs-vsctl add-br s1 -- add-br s2 -- add-br s3 -- add-br s4
+#   sudo containerlab deploy -t linear.clab.yml
+# Remove it:
+#   sudo containerlab destroy -t linear.clab.yml
+#   sudo ip link del s1-eth3
+#   sudo ip link del s2-eth3
+#   sudo ip link del s3-eth3
+#   sudo ovs-vsctl del-br s1 -- del-br s2 -- del-br s3 -- del-br s4
+# destroy removes the hosts and their cables, but NOT the cables between two
+# switches: neither end is inside a host, so you delete them yourself.
+# Deleting one end of a cable removes both ends.
+name: linear
+prefix: ""
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none
+  nodes:
+    s1: {kind: ovs-bridge}
+    s2: {kind: ovs-bridge}
+    s3: {kind: ovs-bridge}
+    s4: {kind: ovs-bridge}
+    h1:
+      exec: ["ip addr add 10.0.0.1/24 dev eth0"]
+    h2:
+      exec: ["ip addr add 10.0.0.2/24 dev eth0"]
+    h3:
+      exec: ["ip addr add 10.0.0.3/24 dev eth0"]
+    h4:
+      exec: ["ip addr add 10.0.0.4/24 dev eth0"]
+  links:
+    # hosts, one per switch
+    - {endpoints: ["h1:eth0", "s1:s1-eth1"], mtu: 1500}
+    - {endpoints: ["h2:eth0", "s2:s2-eth1"], mtu: 1500}
+    - {endpoints: ["h3:eth0", "s3:s3-eth1"], mtu: 1500}
+    - {endpoints: ["h4:eth0", "s4:s4-eth1"], mtu: 1500}
+    # the chain: switch-to-switch cables
+    - {endpoints: ["s1:s1-eth3", "s2:s2-eth2"], mtu: 1500}   # s1 <-> s2
+    - {endpoints: ["s2:s2-eth3", "s3:s3-eth2"], mtu: 1500}   # s2 <-> s3
+    - {endpoints: ["s3:s3-eth3", "s4:s4-eth2"], mtu: 1500}   # s3 <-> s4

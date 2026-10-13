@@ -1,0 +1,46 @@
+# FANOUT: one switch with many hosts (100 with the settings in
+# fanout.clab_vars.yaml).
+#
+#                       s1
+#        /     /     /  |  \     \     \
+#      h1    h2    h3  ...  h98   h99  h100
+#
+# The same shape as single.clab.yml, but large. Writing out 100 hosts and
+# 100 links by hand would be slow and easy to get wrong, so this file is a
+# TEMPLATE: the range loops below write them for you, and you change
+# the number of hosts in fanout.clab_vars.yaml. Use it to see how a switch
+# behaves with many hosts: the size of its MAC address table, how far a
+# broadcast spreads, and how long a network takes to build.
+#
+# Mininet has no direct equivalent (its "single,100" is the closest).
+#
+# To see the plain topology it produces:
+#   sudo containerlab graph -t fanout.clab.gotmpl --mermaid --offline
+#   cat clab-fanout/graph/fanout.clab.mermaid
+#
+# Build it:
+#   sudo ovs-vsctl add-br s1
+#   sudo containerlab deploy -t fanout.clab.gotmpl
+# Remove it:
+#   sudo containerlab destroy -t fanout.clab.gotmpl
+#   sudo ovs-vsctl del-br s1
+name: fanout
+prefix: ""
+
+topology:
+  defaults:
+    kind: linux
+    image: csci60/host
+    network-mode: none
+  nodes:
+    s1: {kind: ovs-bridge}
+    # host h<N> gets address 10.0.0.<N>
+{{- range $h := seq 1 $.hosts }}
+    h{{ $h }}:
+      exec: ["ip addr add 10.0.0.{{ $h }}/24 dev eth0"]
+{{- end }}
+  links:
+    # host h<N> plugs into port N of s1
+{{- range $h := seq 1 $.hosts }}
+    - {endpoints: ["h{{ $h }}:eth0", "s1:s1-eth{{ $h }}"], mtu: 1500}
+{{- end }}

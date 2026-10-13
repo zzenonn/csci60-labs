@@ -1,0 +1,5 @@
+# Settings for fanout.clab.gotmpl. Containerlab reads this file automatically
+# because its name matches the topology file.
+#
+# hosts: how many hosts to plug into the switch (1 to 254)
+hosts: 100
