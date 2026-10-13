@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 2: Connectivity Devices (Hubs and Switches) with OpenFlow
 
-*Original by William Emmanuel Yu, Ph.D. (September 2022). Updated for
-Containerlab, Open vSwitch and os-ken on your CSCI 60 VM.*
+*Original by William Emmanuel Yu, Ph.D. (September 2022).
+Updated for Containerlab by Miguel Zenon Nicanor L. Saavedra, Ph.D.*
 
 ## Objectives
 

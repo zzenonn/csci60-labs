@@ -1,7 +1,7 @@
 # CSCI 60 Lab Exercise 4: TCP/IP Routing
 
-*Original by William Emmanuel Yu, Ph.D. (September 2021). Updated for
-Containerlab and Open vSwitch on your CSCI 60 VM.*
+*Original by William Emmanuel Yu, Ph.D. (September 2021).
+Updated for Containerlab by Miguel Zenon Nicanor L. Saavedra, Ph.D.*
 
 ## Objectives
 
