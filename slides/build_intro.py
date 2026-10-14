@@ -66,7 +66,7 @@ S.append(slide_cover(
     "cover", "CSCI 60: Introduction to Containerlab", "Building virtual networks from code",
     "Department of Information Systems and Computer Science", "Last revised October 2026",
     "DISCS", "Ateneo de Manila University",
-    notes="This deck replaces the Introduction to Mininet slides. Students build every network with Containerlab and Open vSwitch on their own Rocky Linux VM. The hands-on steps are in getting-started/README.md and topologies/ in the csci60-labs repository."))
+    notes="Students build every network with Containerlab and Open vSwitch on their own Rocky Linux VM. The hands-on steps are in getting-started/README.md and topologies/ in the csci60-labs repository."))
 
 S.append(slide_default("why", "Why build networks in software?", (bullets([
     "Try out <b>new protocols and topologies</b> without buying equipment",
@@ -74,7 +74,79 @@ S.append(slide_default("why", "Why build networks in software?", (bullets([
     "Break it, inspect it, rebuild it in seconds",
     "Software-defined networking (SDN): a <b>controller</b> program decides how switches forward",
     "Lab 2 uses an SDN controller; Labs 3 and 4 use normal switches",
-]), 140, 420, 28), notes="Motivation, same as the Mininet deck's SDN slides: test beds, new protocols, no need for real equipment. Point out where SDN appears in the course (Lab 2 only)."))
+]), 140, 420, 28), notes="Motivation: test beds, new protocols, no need for real equipment. Point out where SDN appears in the course (Lab 2 only)."))
+
+# ---------- virtualization vs containers ----------
+def layer(eid, label, x, y, w, h, fill, color=INK, stroke="none", sw=0):
+    return [rect(eid, x, y, w, h, fill=fill, stroke=stroke, sw=sw, radius=6),
+            text(eid + "-t", label, x, y, w, h, size=20, family=HEAD, weight=500, color=color,
+                 align="center", valign="middle", lh=1)]
+
+
+def stack_diagram():
+    RH, G = 52, 8                      # row height, gap
+    y_inf = 576; y_os = y_inf - RH - G; y_mid = y_os - RH - G
+    els = []
+    for side, x0, title, mid, guest in [("c", MX, "Containers", "Docker", False),
+                                         ("v", 664, "Virtual machines", "Hypervisor", True)]:
+        w = 552
+        els.append(text(f"vz-h-{side}", title, x0, 140, w, 48, size=30, family=HEAD, weight=700,
+                        color=BLUE, align="center"))
+        els += layer(f"vz-inf-{side}", "Infrastructure (the computer)", x0, y_inf, w, RH, "#E6E6E6")
+        if side == "c":
+            els += layer(f"vz-os-{side}", "Host operating system", x0, y_os, w, RH, INK, color="#FFFFFF")
+            els += layer(f"vz-mid-{side}", mid, x0, y_mid, w, RH, BLUE, color="#FFFFFF")
+            top = y_mid - G
+        else:
+            els += layer(f"vz-os-{side}", "Hypervisor", x0, y_os, w, RH, BLUE, color="#FFFFFF")
+            top = y_os - G
+        bw = (w - 24) // 2
+        for i, app in enumerate(["App A", "App B"]):
+            bx = x0 + i * (bw + 24)
+            rows = (["Guest operating system"] if guest else []) + ["Bins / Libs", app]
+            fh = 36 + len(rows) * (RH + G) + 4
+            fy = top - fh
+            els.append(rect(f"vz-fr-{side}{i}", bx, fy, bw, fh, fill="rgba(0,176,240,0.05)",
+                            stroke=BLUE, sw=2, radius=8))
+            els.append(text(f"vz-fl-{side}{i}", "Container" if side == "c" else "VM", bx, fy + 6, bw, 28,
+                            size=18, family=HEAD, weight=700, color=BLUE, align="center"))
+            ry = top - 4 - RH
+            for j, r in enumerate(rows):
+                fill, col = ("#FFFFFF", INK)
+                if r.startswith("Guest"):
+                    fill, col = (INK, "#FFFFFF")
+                elif r.startswith("Bins"):
+                    fill = PANEL
+                els += layer(f"vz-r-{side}{i}{j}", r, bx + 12, ry, bw - 24, RH, fill, color=col,
+                             stroke="rgba(64,64,64,0.25)" if fill != INK else "none", sw=1)
+                ry -= RH + G
+    els.append(rect("vz-div", 640, 140, 1, 488, fill="rgba(64,64,64,0.2)"))
+    return els
+
+
+S.append(slide_default("virt", "Virtual machines and containers", None, extra=stack_diagram(),
+    notes="Two ways to run many isolated systems on one computer. A virtual machine runs a whole guest operating system, with its own kernel, on top of a hypervisor. A container shares the host's kernel: Docker only gives each container its own files, processes and network. Your Rocky Linux VM is the left-hand picture inside the right-hand one: the VM runs on your laptop's hypervisor, and the lab hosts are containers inside it."))
+
+S.append(slide_default("vz-compare", "Why containers for network labs?", None, extra=[table("vz-tbl", [
+    ["", "Virtual machine", "Container"],
+    ["Runs its own kernel", "yes", "no, shares the host's"],
+    ["Starts in", "a minute or more", "under a second"],
+    ["Size", "gigabytes", "megabytes"],
+    ["How many on a laptop", "a few", "hundreds"],
+    ["Isolation", "strong: a separate machine", "processes, files and network kept apart"],
+], MX, 140, CW, 330, cols=[1.3, 1.5, 1.8], size=22),
+    text("vz-take", "A lab host only needs its own <b>network</b>: interfaces, addresses and routes. "
+         "A container gives exactly that, so a 100-host network fits on one VM.", MX, 500, CW, 80, size=24, lh=1.45)],
+    notes="Tested: 100 lab hosts deploy in about 26 seconds and use about 1.7 GB of memory in total."))
+
+S.append(slide_default("docker", "What is Docker?", (bullets([
+    "Docker runs <b>containers</b>: isolated Linux programs that share the VM's kernel",
+    "An <b>image</b> is the template; a <b>container</b> is a running copy of it",
+    ("Each container gets its own", ["files (from the image)", "processes", "network: its own interfaces, addresses and routing table"]),
+    "Our lab hosts are containers from the <code>csci60/host</code> image",
+]), 136, 330, 26), extra=code("dk-code", "sudo docker images          # the images on your VM\nsudo docker ps              # the running containers\nsudo docker exec h1 ip addr # run a command inside h1",
+                              MX, 476, CW, 124, grammar="sh", size=20),
+    notes="The network part is a Linux network namespace. Containerlab asks Docker to start each host with no network at all (network-mode: none), then plugs in the cables listed in the topology file."))
 
 # Tools: three columns
 cols = [("Containerlab", "Builds the network from a topology file: starts the hosts and connects the cables.", "containerlab deploy"),
@@ -89,7 +161,7 @@ for i, (h, body, cmd) in enumerate(cols):
               text(f"tt-{i}", body, x + 24, 244, 320, 170, size=24, lh=1.45),
               text(f"tx-{i}", cmd, x + 24, 470, 320, 40, size=18, family=MONO, color=INK)]
 S.append(slide_default("tools", "The tools", None, extra=extra,
-                       notes="Containerlab replaces Mininet's topology builder; Open vSwitch is the same switch Mininet used; Docker gives each host its own network namespace. Students type each tool's commands directly; there is no wrapper."))
+                       notes="Containerlab builds the network from a file; Open vSwitch provides the switches; Docker gives each host its own network namespace. Students type each tool's commands directly; there is no wrapper."))
 
 S.append(slide_default("setup", "Getting started", (bullets([
     "Install a <b>Rocky Linux 10</b> VM on your own machine (VirtualBox, VMware or UTM)",
@@ -97,7 +169,7 @@ S.append(slide_default("setup", "Getting started", (bullets([
                                                    "the lab images: <code>csci60/host</code>, <code>csci60/controller</code>"]),
     "Get the course files: <code>git clone</code> the csci60-labs repository",
     "Everything is in <b>getting-started/README.md</b>",
-]), 140, 420, 28), notes="Mirrors the Mininet deck's Getting Started slide (download the VM image). Here students install their own VM, then the tools. Apple-silicon Macs use the ARM64 Rocky image."))
+]), 140, 420, 28), notes="Students install their own VM, then the tools. Apple-silicon Macs use the ARM64 Rocky image."))
 
 S.append(slide_section("sec-first", "Your first network", "Is it working?"))
 
@@ -119,7 +191,7 @@ S.append(topo_slide("topofile", "A topology file", "first",
     bullets(["The file <b>is</b> the network: every host, switch and cable",
              "Each link is one virtual cable: <code>host:interface</code> to <code>switch:port</code>"]),
     first_yaml, "topologies/first.clab.yml (shortened)", csize=14, cy=262, body_h=120,
-    notes="The full file is topologies/first.clab.yml; the slide drops the comments and mtu lines. Mininet's --topo minimal is this same network. Stress that Containerlab has no built-in topologies, so students learn how each one is wired by writing it down."))
+    notes="The full file is topologies/first.clab.yml; the slide drops the comments and mtu lines. Stress that Containerlab has no built-in topologies, so students learn how each one is wired by writing it down."))
 
 steps = [("1", "Create the switch", "sudo ovs-vsctl add-br s1"),
          ("2", "Build the network", "sudo containerlab deploy -t first.clab.yml"),
@@ -138,21 +210,21 @@ for i, (n, h, cmd) in enumerate(steps):
     y += hh
 extra.append(caption("st-cap", "Success: <b>0% packet loss</b>. Containerlab never creates or deletes switches; you do.", MX, 560, CW, 40, size=22, color=INK))
 S.append(slide_default("isitworking", "Is it working?", None, extra=extra,
-    notes="Equivalent of 'sudo mn --test pingall --topo single,3'. Each command is typed separately. Step 1 matters: Containerlab attaches hosts to an existing Open vSwitch bridge and never creates or deletes it."))
+    notes="Each command is typed separately. Step 1 matters: Containerlab attaches hosts to an existing Open vSwitch bridge and never creates or deletes it."))
 
 S.append(slide_default("commands", "Basic commands", None, extra=[table("cmd-tbl", [
-    ["Mininet", "Containerlab / Linux", "What it does"],
-    ["<code>nodes</code>", "<code>containerlab inspect -t &lt;file&gt;</code>", "list the hosts"],
-    ["<code>net</code>", "<code>cat &lt;file&gt;</code> &nbsp;/&nbsp; <code>containerlab graph</code>", "show the topology"],
-    ["<code>dump</code>", "<code>ovs-vsctl show</code>", "switches and their ports"],
-    ["<code>h1 ifconfig</code>", "<code>docker exec h1 ifconfig -a</code>", "a host's interfaces"],
-    ["<code>h1 route</code>", "<code>docker exec h1 route -n</code>", "a host's routing table"],
-    ["<code>h1 ping h2</code>", "<code>docker exec h1 ping -c3 10.0.0.2</code>", "ping between hosts"],
-    ["<code>iperf h1 h2</code>", "<code>iperf -s</code> on h2, <code>iperf -c</code> on h1", "measure bandwidth"],
-    ["<code>xterm h1</code>", "<code>docker exec -it h1 bash</code>", "a shell on a host"],
-    ["<code>pingall</code>", "(none) ping each pair", "test every pair"],
-], MX, 136, CW, 470, cols=[1, 2.3, 1.5], size=20)],
-    notes="Maps each Mininet console command from the old deck to the native command. All commands need sudo. 'containerlab exec -t <file> --cmd \"ip -br addr\"' runs one command on every host at once."))
+    ["Command", "What it does"],
+    ["<code>containerlab inspect -t &lt;file&gt;</code>", "list the hosts"],
+    ["<code>cat &lt;file&gt;</code> &nbsp;/&nbsp; <code>containerlab graph</code>", "show the topology"],
+    ["<code>ovs-vsctl show</code>", "switches and their ports"],
+    ["<code>docker exec h1 ifconfig -a</code>", "a host's interfaces"],
+    ["<code>docker exec h1 route -n</code>", "a host's routing table"],
+    ["<code>docker exec h1 ping -c3 10.0.0.2</code>", "ping between hosts"],
+    ["<code>iperf -s</code> on h2, <code>iperf -c</code> on h1", "measure bandwidth"],
+    ["<code>docker exec -it h1 bash</code>", "a shell on a host"],
+    ["<code>containerlab exec -t &lt;file&gt; --cmd \"ip -br addr\"</code>", "run one command on every host"],
+], MX, 136, CW, 470, cols=[2.3, 1.5], size=20)],
+    notes="The commands students use most. All of them need sudo. 'containerlab exec -t <file> --cmd \"ip -br addr\"' runs one command on every host at once."))
 
 S.append(slide_section("sec-topos", "Some topologies to try", "All in the topologies/ folder"))
 
@@ -166,8 +238,7 @@ single_yaml = '''  nodes:
     - endpoints: ["h2:eth0", "s1:s1-eth2"]
     - endpoints: ["h3:eth0", "s1:s1-eth3"]'''
 S.append(topo_slide("t-single", "Single: one switch", "single",
-    bullets(["Every host on <b>one switch</b>", "A small office or lab bench",
-             "Mininet: <code>--topo single,3</code>"]),
+    bullets(["Every host on <b>one switch</b>", "A small office or lab bench"]),
     single_yaml, "topologies/single.clab.yml",
     notes="single.clab.yml. Each host gets 10.0.0.N/24 through its exec line (not shown). Every pair of hosts is one switch apart."))
 
@@ -180,8 +251,7 @@ linear_yaml = '''  links:
     - endpoints: ["h1:eth0", "s1:s1-eth1"]
     - endpoints: ["h2:eth0", "s2:s2-eth2"]'''
 S.append(topo_slide("t-linear", "Linear: a chain of switches", "linear",
-    bullets(["Switches in a <b>line</b>, one host on each", "The path grows with every switch",
-             "Mininet: <code>--topo linear,4</code>"]),
+    bullets(["Switches in a <b>line</b>, one host on each", "The path grows with every switch"]),
     linear_yaml, "topologies/linear.clab.yml",
     notes="linear.clab.yml. h1 to h4 crosses all four switches. Cables between two switches are not removed by destroy; the file's header lists the ip link del commands."))
 
@@ -194,8 +264,7 @@ fanout: 2
     h{{ $i }}: {}
 {{- end }}'''
 S.append(topo_slide("t-tree", "Tree: levels of switches", "tree",
-    bullets(["A root switch, then levels below it", "Campus networks: core, floor, desk",
-             "Mininet: <code>--topo tree,depth=2,fanout=2</code>"]),
+    bullets(["A root switch, then levels below it", "Campus networks: core, floor, desk"]),
     tree_tmpl, "topologies/tree.clab.gotmpl",
     notes="tree.clab.gotmpl is a template: loops write the hosts and links. Change depth and fanout in tree.clab_vars.yaml. Preview with containerlab graph -t tree.clab.gotmpl --mermaid --offline."))
 
@@ -218,11 +287,11 @@ S.append(slide_default("t-big", "Bigger networks: templates", None, extra=extra,
 perf_extra = code("pf-code", "sudo docker exec h1 tc qdisc add dev eth0 root netem \\\n     delay 5ms rate 10mbit loss 10%\nsudo docker exec h1 ping -c5 10.0.0.2\nsudo docker exec h1 tc qdisc del dev eth0 root",
                   MX, 330, CW, 150, grammar="sh", size=20)
 S.append(slide_default("perf", "Setting performance limits", (bullets([
-    "Mininet set <b>bw, delay, loss</b> on a link; Linux does this with <code>tc</code>",
+    "Real links have limited <b>bandwidth</b>, some <b>delay</b> and some <b>loss</b>; set them with <code>tc</code>",
     "Set it on the host's interface, live, or in the topology file's <code>exec</code> list",
     "Measure with <code>ping</code> (delay, loss) and <code>iperf</code> (bandwidth)",
 ]), 136, 180, 26), extra=perf_extra,
-    notes="Matches the Mininet slide's addLink(bw=10, delay='5ms', loss=10). tc netem is what Mininet's TCLink used underneath."))
+    notes="tc netem shapes traffic on an interface. The example gives h1 a 10 Mbit/s link with 5 ms delay and 10% loss."))
 
 S.append(slide_default("interfaces", "Where are the cables?", (bullets([
     "Each link is a <b>veth pair</b>: a virtual cable with two ends",
@@ -248,7 +317,7 @@ S.append(slide_default("cleanup", "Cleaning up", (bullets([
     "Errors like <i>lab already exists</i>? See the FAQ in each handout",
 ]), 136, 300, 26), extra=code("cu-code", "sudo containerlab destroy --all -y\nsudo ovs-vsctl list-br          # then del-br each one\nsudo docker ps -q; sudo ovs-vsctl list-br   # both print nothing",
                                MX, 460, CW, 120, grammar="sh", size=20),
-    notes="Replaces the Mininet deck's FAQ about controllers left running. The full fix is in the FAQ of each handout."))
+    notes="The full fix is in the FAQ of each handout."))
 
 S.append(slide_default("exercises", "Exercises", (
     "1.&nbsp; Build these with <code>tree.clab.gotmpl</code> and a topology file of your own:"
@@ -256,7 +325,7 @@ S.append(slide_default("exercises", "Exercises", (
     "<br>2.&nbsp; Create your own topology: 2 switches connected to each other, 3 hosts on each"
     "<br>3.&nbsp; Which network performs better? Compare tree (depth 2, fanout 2), single (4 hosts) and linear (4 switches)"
     "<br>4.&nbsp; Add 10 ms delay to one link. How does it change ping between each pair?",
-    136, 440, 26), notes="Same exercises as the Mininet deck, adapted. The user-space versus kernel switch exercise is dropped: Open vSwitch here is the kernel datapath."))
+    136, 440, 26), notes="Exercises 1 and 2 use the files in topologies/. Exercise 3 compares paths of different lengths."))
 
 S.append(slide_end("end", "Thank You", "Next: Lab 2, Hubs and switches with OpenFlow"))
 

@@ -10,8 +10,6 @@
 # are. Use it to see how distance (number of hops) affects delay, and how one
 # broken link splits the network in two.
 #
-# Mininet calls this "--topo linear,4".
-#
 # Port plan on every switch sK:
 #   sK-eth1  the host hK
 #   sK-eth2  the switch before it (towards s1)

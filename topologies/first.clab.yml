@@ -6,8 +6,6 @@
 # step (section 5). Use it to learn the commands: deploy, docker exec, ping,
 # ovs-vsctl show, destroy.
 #
-# Mininet calls this "--topo minimal" (its default).
-#
 name: first
 prefix: ""            # name the containers just h1, h2
 

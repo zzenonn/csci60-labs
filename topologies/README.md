@@ -5,14 +5,14 @@ common shapes. Each file starts with a comment that
 draws the topology, says what it is used for, and lists the commands to build
 and remove it. Read that comment before you deploy.
 
-| Shape  | File                 | Switches              | Hosts | Mininet name             |
-| ------ | -------------------- | --------------------- | ----- | ------------------------ |
-| First  | `first.clab.yml`     | s1                    | 2     | `minimal`                |
-| Single | `single.clab.yml`    | s1                    | 3     | `single,3`               |
-| Linear | `linear.clab.yml`    | s1 .. s4              | 4     | `linear,4`               |
-| Tree   | `tree.clab.gotmpl`   | s1 .. s3              | 4     | `tree,depth=2,fanout=2`  |
-| Fanout | `fanout.clab.gotmpl` | s1                    | 100   | (none)                   |
-| Clos   | `clos.clab.gotmpl`   | spine1-2, leaf1-4     | 8     | (none)                   |
+| Shape  | File                 | Switches              | Hosts |
+| ------ | -------------------- | --------------------- | ----- |
+| First  | `first.clab.yml`     | s1                    | 2     |
+| Single | `single.clab.yml`    | s1                    | 3     |
+| Linear | `linear.clab.yml`    | s1 .. s4              | 4     |
+| Tree   | `tree.clab.gotmpl`   | s1 .. s3              | 4     |
+| Fanout | `fanout.clab.gotmpl` | s1                    | 100   |
+| Clos   | `clos.clab.gotmpl`   | spine1-2, leaf1-4     | 8     |
 
 Every host is called `hN` and has the address `10.0.0.N/24`, so h3 is
 `10.0.0.3`. All hosts are in one subnet; there are no routers.

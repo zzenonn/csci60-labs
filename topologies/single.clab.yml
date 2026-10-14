@@ -9,8 +9,6 @@
 # every other host in one hop. Use it to try out commands, or whenever you
 # need "a few hosts that can talk to each other".
 #
-# Mininet calls this "--topo single,3".
-#
 # Build it:
 #   sudo ovs-vsctl add-br s1
 #   sudo containerlab deploy -t single.clab.yml
