@@ -28,6 +28,7 @@ Getting Started.
 | `lab3-ip-addressing/` | Lab 3 handout and `lab3.clab.yml`                              |
 | `lab4-ip-routing/`    | Lab 4 handout and `lab4.clab.yml`                              |
 | `topologies/`         | All sample topologies: first (Getting Started), single, linear, tree, fanout (100 hosts), Clos |
+| `slides/`             | Lecture slides: Introduction to Containerlab (open in a browser) |
 | `images/`             | Container images: lab hosts, and the os-ken controller         |
 
 Only Lab 2 uses a controller. In Labs 3 and 4 the switches are normal
