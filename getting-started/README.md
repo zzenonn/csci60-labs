@@ -142,6 +142,7 @@ The lab hosts and the Lab 2 controller run from two container images, built
 from the `images/` folder:
 
 ```bash
+cd ~/csci60
 sudo docker build -t csci60/host images/host   # lab hosts (Alpine Linux + tools)
 sudo docker build -t csci60/controller images/controller   # os-ken 4.2.2 (Lab 2)
 sudo docker images 'csci60/*'
