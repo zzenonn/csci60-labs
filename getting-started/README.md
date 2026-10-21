@@ -219,6 +219,31 @@ Each link is a virtual cable: `h1:eth0` is interface `eth0` on h1, and
    (`network-mode: none`) so that the hosts only have the links you see in
    the topology file. The hosts' lab addresses are shown in section 6.
 
+### Optional: see the topology in a browser
+
+Containerlab can draw the topology as a diagram and serve it as a web page
+on port 50080. The VM's firewall blocks that port, so open it once:
+
+```bash
+sudo firewall-cmd --permanent --add-port=50080/tcp
+sudo firewall-cmd --reload
+```
+
+Then start the web page:
+
+```bash
+sudo containerlab graph -t first.clab.yml
+```
+
+Find the VM's address with `ip -br addr` (the address on the VM's main
+interface, not `lo` or `docker0`), and open `http://<VM address>:50080` in a
+browser on your computer. The page shows h1, h2 and s1 and the links between
+them. Press `Ctrl+C` in the VM to stop the web page.
+
+If the page does not load and your VM uses VirtualBox NAT, your computer
+cannot reach the VM's address directly. Add a port-forwarding rule for TCP
+port 50080 in the VM's network settings, then open `http://localhost:50080`.
+
 ## 6. Running commands on a host
 
 `docker exec <host> <command>` runs a command on a host:
