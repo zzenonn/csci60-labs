@@ -85,6 +85,28 @@ To see which ports RSTP turned off (look for `Alternate Discarding`):
 sudo ovs-appctl rstp/show leaf1
 ```
 
+## Testing every host: pingall.sh
+
+Mininet had `pingall`, which pings every host from every other host.
+Containerlab has no such command, and with many hosts the pings are too many
+to type (20 hosts make 380 pairs). `pingall.sh` in this folder does it for
+you, for any topology, and changes nothing in your network:
+
+```bash
+sudo bash pingall.sh          # every running Containerlab host
+sudo bash pingall.sh fanout   # only the hosts of the lab named fanout
+```
+
+It prints one line per host, listing the hosts it reached; an `X` marks one
+that did not answer. The last line gives the totals, and `0 of ... failed`
+means every host reaches every other. All hosts ping at the same time, so it
+takes seconds.
+
+Each pair gets up to five pings, so a link with packet loss (netem `loss`)
+does not show up as an `X` by chance. An `X` that is still there when you run
+it again is a real problem: check the addresses, the cables, and that the
+switches exist.
+
 ## Exercises
 
 1. Deploy `single`, `linear` and `tree` one at a time. In each, ping from h1

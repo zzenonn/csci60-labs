@@ -27,7 +27,7 @@ Getting Started.
 | `lab2-hubs-switches/` | Lab 2 handout, `lab2.clab.yml`, and `sw_tutorial.py` (the os-ken controller app) |
 | `lab3-ip-addressing/` | Lab 3 handout and `lab3.clab.yml`                              |
 | `lab4-ip-routing/`    | Lab 4 handout and `lab4.clab.yml`                              |
-| `topologies/`         | All sample topologies: first (Getting Started), single, linear, tree, fanout (100 hosts), Clos |
+| `topologies/`         | All sample topologies: first (Getting Started), single, linear, tree, fanout (100 hosts), Clos; and `pingall.sh`, which pings every host from every other host |
 | `slides/`             | Lecture slides: Introduction to Containerlab (open in a browser) |
 | `images/`             | Container images: lab hosts, and the os-ken controller         |
 
