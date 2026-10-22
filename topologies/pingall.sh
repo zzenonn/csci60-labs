@@ -15,6 +15,8 @@
 # when the network is fine; the extra tries keep that from showing up as an X.
 # An X that stays after you run it again means a real problem.
 #
+# A host with no address of its own on the lab's cables shows as X everywhere.
+#
 # The script only reads your network and sends pings. It changes nothing.
 # All hosts ping at the same time, so it takes seconds, not minutes.
 
@@ -28,11 +30,15 @@ if [ -z "$hosts" ]; then
     exit 1
 fi
 
-# Each host's first IPv4 address (not 127.x), as "name=address" pairs.
+# Each host's first IPv4 address on the lab's own cables, as "name=address"
+# pairs. Addresses Docker gave the host (Containerlab's management network,
+# 172.20.20.x unless you leave out "network-mode: none") are skipped: pings
+# over that network would succeed even if your cables and switches were wrong.
 targets=""
 for h in $hosts; do
+    mgmt=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$h" 2>/dev/null)
     a=$(docker exec "$h" ip -4 -o addr show scope global 2>/dev/null \
-        | awk '{split($4, p, "/"); print p[1]; exit}')
+        | awk -v skip=" $mgmt " '{split($4, p, "/"); if (index(skip, " " p[1] " ") == 0) {print p[1]; exit}}')
     targets="$targets $h=${a:-none}"
 done
 

@@ -107,6 +107,16 @@ does not show up as an `X` by chance. An `X` that is still there when you run
 it again is a real problem: check the addresses, the cables, and that the
 switches exist.
 
+The lab name is the `name:` line at the top of the topology file (for a
+template, of the file it expands to). You need it only when more than one lab
+is running, because hosts in different labs cannot reach each other.
+
+The script pings each host at its address on the lab's own cables. It skips
+the management address Docker gives a host when the topology leaves out
+`network-mode: none`, because pings over that network would succeed even with
+the cables wrong. A host whose only address is the management one shows as
+`X`: add `network-mode: none` and its own address.
+
 ## Exercises
 
 1. Deploy `single`, `linear` and `tree` one at a time. In each, ping from h1
